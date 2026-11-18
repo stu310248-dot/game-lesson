@@ -187,6 +187,12 @@ const batter = makePlayer(blueMat, [-2.2, 0, 21.2], 'batter');
 const catcher = makePlayer(redMat, [0, 0, 25.5], 'catcher');
 const fielderPositions = [[-15,0,7],[15,0,7],[-27,0,-10],[27,0,-10],[0,0,-25],[-42,0,-38],[0,0,-48],[42,0,-38]];
 const fielders = fielderPositions.map((p,i)=>makePlayer(i<2?blueMat:redMat,p,'fielder'));
+
+// Visible base runners and simple automatic outfield pursuit.
+const runners = [0,1,2].map(() => makePlayer(blueMat, [0,-20,0], 'runner'));
+runners.forEach(r => { r.visible = false; });
+const runnerBasePositions = [[15.5,0,6.5],[0,0,-9],[-15.5,0,6.5]];
+let chasingFielder = null;
 batter.rotation.y = -0.2; catcher.rotation.y = Math.PI;
 
 // Bat is attached to a shoulder-height pivot so the swing rotates around the player's hands.
@@ -243,6 +249,10 @@ function syncMatchUI(state) {
   const baseText = ['一壘','二壘','三壘'].map((name,i)=>state.bases[i] ? name+'●' : name+'○').join('　');
   const baseNode = document.querySelector('#baseStatus');
   if (baseNode) baseNode.textContent = baseText;
+  state.bases.forEach((occupied, i) => {
+    runners[i].visible = occupied;
+    if (occupied) runners[i].position.set(...runnerBasePositions[i]);
+  });
   if (state.lastCall) setHint(state.lastCall);
   if (state.gameOver) {
     actionTitle.textContent = '比賽結束';
@@ -324,6 +334,8 @@ function swing() {
       match.pitch({ contact: true, result: kind });
       ballMode = 'hit';
       ballVelocity.set(direction, launch, -power);
+      chasingFielder = fielders.reduce((best, player) =>
+        !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
       ballAge = 0;
       setView('field');
       setHint(kind === 'homer' ? '全壘打！球飛越外野！' : quality > 0.68 ? '紮實擊球！球飛向外野！' : '擊球形成安打！');
@@ -401,6 +413,16 @@ function animate() {
       ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
     }
     if (ballMode === 'hit') {
+      if (chasingFielder && ballAge < 2.8) {
+        const target = new THREE.Vector3(
+          THREE.MathUtils.clamp(ball.position.x, -55, 55), 0,
+          THREE.MathUtils.clamp(ball.position.z, -58, 16)
+        );
+        chasingFielder.position.lerp(target, Math.min(1, dt * 2.4));
+        chasingFielder.rotation.y = Math.atan2(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
+        chasingFielder.userData.legs[0].rotation.x = Math.sin(now * 11) * 0.42;
+        chasingFielder.userData.legs[1].rotation.x = -Math.sin(now * 11) * 0.42;
+      }
       ballVelocity.y -= 17 * dt;
       if (ball.position.y < 0.28) {
         ball.position.y = 0.28;
@@ -411,6 +433,10 @@ function animate() {
       }
       ball.rotation.x += dt * 8; ball.rotation.z += dt * 5;
       if (ballAge > 4.5 || Math.abs(ball.position.x) > 75 || ball.position.z < -90) {
+        if (chasingFielder) {
+          chasingFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+          chasingFielder = null;
+        }
         ball.visible = false; ballMode = 'idle';
         setHint('球已停止，按「投球」繼續比賽');
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
