@@ -155,24 +155,32 @@ box(scene, 'scoreboard-screen', [25, 7, 0.25], [0, 17, -78.3], mat(0x071522));
 
 // Simple procedural player models.
 function makePlayer(teamMaterial, position, role = 'fielder') {
-  const root = new THREE.Group(); root.position.set(...position); scene.add(root);
+  const root = new THREE.Group();
+  root.position.set(...position);
+  scene.add(root);
+
   const torso = cylinder(root, 0.48, 0.58, 1.25, [0, 1.55, 0], teamMaterial, 12);
-  torso.rotation.z = -0.05;
   cylinder(root, 0.32, 0.34, 0.28, [0, 2.32, 0], skinMat, 16);
   const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.37, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), teamMaterial);
-  helmet.position.set(0, 2.58, 0); root.add(helmet);
+  helmet.position.set(0, 2.58, 0);
+  root.add(helmet);
+
+  const arms = [];
+  const legs = [];
   for (const side of [-1, 1]) {
     const leg = box(root, 'leg', [0.28, 0.88, 0.34], [side * 0.24, 0.47, 0], mat(0xe4e8eb));
     leg.rotation.z = side * -0.08;
+    legs.push(leg);
     const arm = cylinder(root, 0.16, 0.19, 0.92, [side * 0.62, 1.65, 0], teamMaterial, 10);
     arm.rotation.z = side * -0.32;
+    arms.push(arm);
   }
   const glove = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), gloveMat);
-  glove.position.set(0.83, 1.25, -0.05); root.add(glove);
-  root.userData.role = role;
+  glove.position.set(0.83, 1.25, -0.05);
+  root.add(glove);
+  root.userData = { role, torso, arms, legs, baseY: position[1] };
   return root;
 }
-
 const pitcher = makePlayer(redMat, [0, 0, 0], 'pitcher');
 const batter = makePlayer(blueMat, [-2.2, 0, 21.2], 'batter');
 const catcher = makePlayer(redMat, [0, 0, 25.5], 'catcher');
@@ -180,11 +188,13 @@ const fielderPositions = [[-15,0,7],[15,0,7],[-27,0,-10],[27,0,-10],[0,0,-25],[-
 const fielders = fielderPositions.map((p,i)=>makePlayer(i<2?blueMat:redMat,p,'fielder'));
 batter.rotation.y = -0.2; catcher.rotation.y = Math.PI;
 
-// Bat model, parented to the batter.
-const bat = cylinder(batter, 0.075, 0.12, 2.2, [0.65, 1.55, -0.3], mat(0xd2a36b), 12);
-bat.rotation.z = -0.85;
-bat.visible = false;
-
+// Bat is attached to a shoulder-height pivot so the swing rotates around the player's hands.
+const batPivot = new THREE.Group();
+batPivot.position.set(0.48, 1.72, -0.2);
+batter.add(batPivot);
+const bat = cylinder(batPivot, 0.075, 0.12, 2.2, [0, 1.0, 0], mat(0xd2a36b), 12);
+bat.rotation.z = -0.18;
+batPivot.rotation.z = -0.72;
 // Baseball and seam approximation.
 const ball = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16), ballMat);
 ball.castShadow = true; scene.add(ball); ball.visible = false;
@@ -209,6 +219,9 @@ let ballAge = 0;
 let pitchNumber = 0;
 let balls = 0, strikes = 0, outs = 0;
 let swingUntil = 0;
+let swingStartedAt = 0;
+let pitcherThrowStartedAt = -10;
+let batterSwinging = false;
 let hitMessageTimer = 0;
 const clock = new THREE.Clock();
 
@@ -234,6 +247,7 @@ function resetCount() {
 function nextPitch() {
   if (ballMode === 'pitch' || ballMode === 'hit') return;
   pitchNumber++;
+  pitcherThrowStartedAt = performance.now() / 1000;
   const targetX = (Math.random() - 0.5) * 1.8;
   const targetY = 1.2 + Math.random() * 0.9;
   ball.position.set(0, 2.4, -0.3);
@@ -247,9 +261,10 @@ function nextPitch() {
 }
 function swing() {
   const now = performance.now() / 1000;
+  swingStartedAt = now;
   swingUntil = now + 0.42;
-  bat.visible = true;
-  bat.rotation.z = -0.85;
+  batterSwinging = true;
+  batPivot.rotation.z = -0.72;
   if (ballMode === 'pitch' && ball.position.z > 9 && ball.position.z < 23 && ballAge > 0.48 && ballAge < 1.35) {
     const timing = Math.abs(ball.position.z - 17.2);
     const quality = Math.max(0, 1 - timing / 6);
@@ -262,7 +277,8 @@ function swing() {
     hitMessageTimer = 2.8;
   } else {
     if (ballMode === 'pitch') {
-      strikes = Math.min(2, strikes + 1); updateCount();
+      strikes = Math.min(3, strikes + 1); updateCount();
+      if (strikes >= 3) { outs = Math.min(3, outs + 1); resetCount(); document.querySelector('#outs').textContent = outs; }
       setHint('揮棒落空！好球 ' + strikes);
       actionTitle.textContent = '揮棒落空';
       actionDescription.textContent = '留意投球抵達本壘的時機，再試一次。';
@@ -275,8 +291,8 @@ function swing() {
 }
 function finishPitch() {
   if (ballMode === 'pitch') {
-    balls = Math.min(3, balls + 1);
-    if (balls === 4) { resetCount(); setHint('四壞球（練習計數）'); }
+    balls = Math.min(4, balls + 1);
+    if (balls >= 4) { resetCount(); setHint('四壞球（練習計數）'); }
     else setHint('球未進入好球帶，壞球 ' + balls);
     updateCount();
   }
@@ -343,10 +359,34 @@ function animate() {
       }
     } else if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
   }
-  if (bat.visible) {
-    const progress = Math.max(0, Math.min(1, (swingUntil - now) / 0.42));
-    bat.rotation.z = -0.85 + Math.sin((1-progress) * Math.PI) * 1.65;
-    if (now > swingUntil) bat.visible = false;
+  // Pitcher wind-up and release: body turns, lead leg lifts, then the throwing arm drives forward.
+  const throwAge = now - pitcherThrowStartedAt;
+  if (throwAge >= 0 && throwAge < 0.9) {
+    const wind = Math.sin(Math.min(1, throwAge / 0.9) * Math.PI);
+    pitcher.userData.torso.rotation.z = -0.05 + wind * 0.16;
+    pitcher.userData.arms[1].rotation.z = -0.32 - wind * 1.05;
+    pitcher.userData.arms[0].rotation.z = 0.32 + wind * 0.28;
+    pitcher.userData.legs[0].rotation.x = wind * 0.32;
+  } else {
+    pitcher.userData.torso.rotation.z = -0.05;
+    pitcher.userData.arms[1].rotation.z = -0.32;
+    pitcher.userData.arms[0].rotation.z = 0.32;
+    pitcher.userData.legs[0].rotation.x = 0;
+  }
+
+  // Batter weight shift and bat arc are driven by a short eased swing animation.
+  if (batterSwinging) {
+    const progress = Math.min(1, (now - swingStartedAt) / 0.42);
+    const eased = progress * progress * (3 - 2 * progress);
+    batPivot.rotation.z = -0.72 + Math.sin(eased * Math.PI) * 1.42;
+    batter.rotation.y = -0.2 - Math.sin(eased * Math.PI) * 0.42;
+    batter.userData.torso.rotation.z = -0.05 - Math.sin(eased * Math.PI) * 0.18;
+    if (progress >= 1) {
+      batterSwinging = false;
+      batPivot.rotation.z = -0.72;
+      batter.rotation.y = -0.2;
+      batter.userData.torso.rotation.z = -0.05;
+    }
   }
   if (hitMessageTimer > 0) hitMessageTimer -= dt;
   renderer.render(scene, camera);
