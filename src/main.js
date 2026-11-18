@@ -360,7 +360,14 @@ function resetCount() {
   balls = 0; strikes = 0; updateCount();
 }
 function nextPitch() {
-  if (ballMode === 'pitch' || ballMode === 'hit' || match.gameOver) return;
+  if (ballMode === 'pitch' || ballMode === 'hit' || ballMode === 'throw' || match.gameOver) return;
+  aiPitchCooldown = 3.2 + Math.random() * 1.2;
+  if (aiOpponentEnabled) {
+    const aiPitches = ['fastball', 'twoseam', 'slider', 'curve', 'changeup', 'splitter', 'sinker'];
+    activePitchType = aiPitches[Math.floor(Math.random() * aiPitches.length)];
+    const pitchTypeSelect = document.querySelector('#pitchType');
+    if (pitchTypeSelect) pitchTypeSelect.value = activePitchType;
+  }
   pitchNumber++;
   pitchWasSwungAt = false;
   pitchResolved = false;
@@ -484,7 +491,7 @@ document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('cl
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = 1.4; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 mount.addEventListener('pointermove', event => {
   const rect = mount.getBoundingClientRect();
@@ -499,6 +506,7 @@ mount.addEventListener('pointerleave', () => { if (aimCursor) aimCursor.style.op
 mount.addEventListener('pointerenter', () => { if (aimCursor) aimCursor.style.opacity = '1'; });
 aiToggle?.addEventListener('click', () => {
   aiOpponentEnabled = !aiOpponentEnabled;
+  aiPitchCooldown = aiOpponentEnabled ? 0.8 : 999;
   aiToggle.classList.toggle('active', aiOpponentEnabled);
   aiToggle.textContent = aiOpponentEnabled ? 'AI 對手：開' : 'AI 對手：關';
   setHint(aiOpponentEnabled ? 'AI 對手已啟用：自動投球。' : 'AI 對手已暫停：請手動按投球。');
@@ -518,6 +526,12 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
   const now = performance.now() / 1000;
+
+  // The AI opponent automatically starts the next pitch after the previous play settles.
+  if (aiOpponentEnabled && ballMode === 'idle' && !match.gameOver) {
+    aiPitchCooldown -= dt;
+    if (aiPitchCooldown <= 0) nextPitch();
+  }
 
   runners.forEach(runner => {
     if (runner.visible && runner.userData.runProgress < 1) {
