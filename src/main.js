@@ -266,13 +266,42 @@ let pitchNumber = 0;
 let pitchWasSwungAt = false;
 let balls = 0, strikes = 0, outs = 0;
 let activePitchType = 'fastball';
-let pitcherStamina = 100;
+const pitcherRoster = [
+  { name: '陳曜廷', role: '先發', speed: 1.03, stamina: 100 },
+  { name: '林奕辰', role: '先發', speed: 1.00, stamina: 100 },
+  { name: '周柏翰', role: '先發', speed: 0.98, stamina: 100 },
+  { name: '許承恩', role: '中繼', speed: 1.01, stamina: 100 },
+  { name: '江子皓', role: '終結者', speed: 1.06, stamina: 100 }
+];
+let activePitcherIndex = 0;
+let pitcherStamina = pitcherRoster[0].stamina;
 const staminaFill = document.querySelector('#staminaFill');
 const staminaValue = document.querySelector('#staminaValue');
+const pitcherName = document.querySelector('#pitcherName');
+const pitcherSelect = document.querySelector('#pitcherSelect');
+const changePitcherBtn = document.querySelector('#changePitcherBtn');
 function updateStaminaUI() {
+  pitcherRoster[activePitcherIndex].stamina = pitcherStamina;
   if (staminaFill) staminaFill.style.width = `${pitcherStamina}%`;
   if (staminaValue) staminaValue.textContent = `${Math.round(pitcherStamina)}%`;
   if (staminaFill) staminaFill.classList.toggle('low', pitcherStamina < 30);
+  if (pitcherName) pitcherName.textContent = pitcherRoster[activePitcherIndex].name;
+}
+function changePitcher() {
+  if (ballMode !== 'idle' || match.gameOver) {
+    setHint('請等這一球結束後再更換投手。');
+    return;
+  }
+  const nextIndex = Number(pitcherSelect?.value ?? activePitcherIndex);
+  if (!Number.isInteger(nextIndex) || !pitcherRoster[nextIndex] || nextIndex === activePitcherIndex) return;
+  pitcherRoster[activePitcherIndex].stamina = pitcherStamina;
+  activePitcherIndex = nextIndex;
+  pitcherStamina = pitcherRoster[activePitcherIndex].stamina;
+  updateStaminaUI();
+  const selected = pitcherRoster[activePitcherIndex];
+  setHint(`更換投手：${selected.name}（${selected.role}）`);
+  actionTitle.textContent = `登板投手：${selected.name}`;
+  actionDescription.textContent = '新投手保留自己的體力；每位投手的體力分開計算。';
 }
 let activePitchCurve = 0;
 let pitchInZone = true;
@@ -343,7 +372,7 @@ function nextPitch() {
   pitcherStamina = Math.max(8, pitcherStamina - 1.8);
   updateStaminaUI();
   const fatigue = 1 - (100 - pitcherStamina) * 0.0028;
-  const effectiveSpeed = profile.speed * fatigue;
+  const effectiveSpeed = profile.speed * fatigue * pitcherRoster[activePitcherIndex].speed;
   const controlSpread = 2.4 + (100 - pitcherStamina) * 0.025;
   const targetX = (Math.random() - 0.5) * controlSpread;
   const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
@@ -427,8 +456,9 @@ updateStaminaUI();
 
 document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
+changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherStamina = 100; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
