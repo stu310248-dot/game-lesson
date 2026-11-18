@@ -266,6 +266,14 @@ let pitchNumber = 0;
 let pitchWasSwungAt = false;
 let balls = 0, strikes = 0, outs = 0;
 let activePitchType = 'fastball';
+let pitcherStamina = 100;
+const staminaFill = document.querySelector('#staminaFill');
+const staminaValue = document.querySelector('#staminaValue');
+function updateStaminaUI() {
+  if (staminaFill) staminaFill.style.width = `${pitcherStamina}%`;
+  if (staminaValue) staminaValue.textContent = `${Math.round(pitcherStamina)}%`;
+  if (staminaFill) staminaFill.classList.toggle('low', pitcherStamina < 30);
+}
 let activePitchCurve = 0;
 let pitchInZone = true;
 let pitchResolved = false;
@@ -332,20 +340,26 @@ function nextPitch() {
     twoseam: { speed: 36, curve: 2.1, label: '二縫線快速球' }
   };
   const profile = profiles[activePitchType] || profiles.fastball;
-  const targetX = (Math.random() - 0.5) * 2.4;
-  const targetY = 0.75 + Math.random() * 1.9;
+  pitcherStamina = Math.max(8, pitcherStamina - 1.8);
+  updateStaminaUI();
+  const fatigue = 1 - (100 - pitcherStamina) * 0.0028;
+  const effectiveSpeed = profile.speed * fatigue;
+  const controlSpread = 2.4 + (100 - pitcherStamina) * 0.025;
+  const targetX = (Math.random() - 0.5) * controlSpread;
+  const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
   pitchInZone = Math.abs(targetX) < 0.9 && targetY > 0.9 && targetY < 2.25;
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
   activePitchCurve = profile.curve * (Math.random() < 0.5 ? -1 : 1);
   const destination = new THREE.Vector3(targetX, targetY, 19.7);
-  const duration = 34 / profile.speed;
+  const duration = 34 / effectiveSpeed;
   ballVelocity.copy(destination.sub(ball.position)).multiplyScalar(1 / duration);
   setView('batter');
-  setHint(profile.label + ' ' + profile.speed + ' m/s，球已投出！');
-  actionTitle.textContent = profile.label + ' · ' + profile.speed + ' km/h';
-  actionDescription.textContent = '球路會隨球種產生變化，抓準進壘時機揮棒。';
+  const speedKmh = Math.round(effectiveSpeed * 3.6);
+  setHint(profile.label + ' ' + speedKmh + ' km/h，球已投出！');
+  actionTitle.textContent = profile.label + ' · ' + speedKmh + ' km/h';
+  actionDescription.textContent = pitcherStamina < 30 ? '投手體力偏低，球速與控球都會下降。' : '球路會隨球種產生變化，抓準進壘時機揮棒。';
 }
 function swing() {
   if (match.gameOver) return;
@@ -409,11 +423,12 @@ function resize() {
 const resizeObserver = new ResizeObserver(resize);
 resizeObserver.observe(mount);
 resize();
+updateStaminaUI();
 
 document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherStamina = 100; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
