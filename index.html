@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="description" content="鑽石棒球場 3D - 可操作的 3D 棒球遊戲開發原型">
+  <title>鑽石棒球場 3D</title>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="鑽石棒球場 3D">
+        <span class="brand-mark">◆</span>
+        <span><b>DIAMOND</b><small>BASEBALL 3D</small></span>
+      </a>
+      <div class="build-tag"><i></i> DEVELOPMENT BUILD <span>PHASE 01</span></div>
+      <button id="fullscreenBtn" class="icon-button" aria-label="切換全螢幕" title="全螢幕">⛶</button>
+    </header>
+
+    <section class="scoreboard" aria-label="即時比分">
+      <div class="team-block"><span class="team-symbol">B</span><div><small>主場 HOME</small><b>藍焰隊</b></div></div>
+      <div class="score-center">
+        <div class="inning"><span id="inningLabel">▲ 1 局上</span><span class="live-dot">LIVE</span></div>
+        <div class="score"><strong id="awayScore">0</strong><span>:</span><strong id="homeScore">0</strong></div>
+        <div class="count"><span>B <b id="balls">0</b></span><span>S <b id="strikes">0</b></span><span>O <b id="outs">0</b></span></div>
+      </div>
+      <div class="team-block away"><div><small>客場 AWAY</small><b>赤隼隊</b></div><span class="team-symbol red">R</span></div>
+    </section>
+
+    <section class="viewport-wrap">
+      <div id="gameViewport" aria-label="互動式 3D 棒球場"></div>
+      <div class="view-chip"><span class="view-dot"></span><span id="viewName">全場視角</span></div>
+      <div class="field-hint" id="fieldHint">點擊「投球」開始練習</div>
+      <div class="loading" id="loading"><div class="loader"></div><b>正在建構球場</b><span>載入 3D 場景與球員模型…</span></div>
+      <div class="viewport-bottom"><span>3D MATCH ENGINE <b>•</b> REAL-TIME SCENE</span><span>THREE.JS</span></div>
+    </section>
+
+    <section class="control-deck">
+      <div class="deck-heading"><div><small>CAMERA CONTROL</small><b>球場視角</b></div><span>選擇鏡頭</span></div>
+      <div class="camera-buttons">
+        <button class="camera-btn active" data-view="broadcast"><span>▦</span>全場</button>
+        <button class="camera-btn" data-view="batter"><span>◉</span>打擊</button>
+        <button class="camera-btn" data-view="pitcher"><span>◎</span>投球</button>
+        <button class="camera-btn" data-view="field"><span>◇</span>守備</button>
+        <button class="camera-btn" data-view="runner"><span>➤</span>跑壘</button>
+      </div>
+      <div class="action-row">
+        <div class="action-copy"><small>PHASE 01 · INTERACTIVE DEMO</small><b id="actionTitle">準備開始練習</b><span id="actionDescription">按下投球，等待球進入打擊區，再抓準時機揮棒。</span></div>
+        <div class="action-buttons">
+          <button id="pitchBtn" class="secondary-btn"><span>↗</span> 投球</button>
+          <button id="swingBtn" class="primary-btn"><span>⚡</span> 揮棒</button>
+        </div>
+      </div>
+      <div class="bottom-note"><span>鍵盤：<kbd>1</kbd>–<kbd>5</kbd> 切換視角　<kbd>空白鍵</kbd> 揮棒　<kbd>P</kbd> 投球</span><span>第一階段開發測試版</span></div>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
