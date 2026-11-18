@@ -70,3 +70,10 @@ kbd{font:600 10px "Barlow Condensed",sans-serif;padding:2px 5px;border:1px solid
 .stamina-control{display:flex;align-items:center;gap:8px;min-width:150px;color:#9eb6cc;font-size:10px}.stamina-track{width:76px;height:7px;background:#263e54;border-radius:9px;overflow:hidden}.stamina-track i{display:block;width:100%;height:100%;background:#42d69a;border-radius:9px;transition:width .25s,background .25s}.stamina-track i.low{background:#ef9b54}.stamina-control b{color:#e8f4ff;font:700 11px 'Barlow Condensed',sans-serif}@media(max-width:650px){.stamina-control{min-width:135px;order:3}.stamina-track{flex:1}}
 
 #pitcherName{font-weight:700;color:#cde5ff;white-space:nowrap}.advanced-controls label{white-space:nowrap}@media(max-width:650px){#pitcherName{order:4}}
+
+
+.aim-cursor{position:absolute;left:50%;top:50%;width:30px;height:30px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);z-index:4;pointer-events:none;filter:drop-shadow(0 0 4px #071426)}
+.aim-cursor:before,.aim-cursor:after{content:"";position:absolute;background:#fff;left:50%;top:50%;transform:translate(-50%,-50%)}
+.aim-cursor:before{width:42px;height:2px}.aim-cursor:after{width:2px;height:42px}
+#aiToggle.active{border-color:#3baf83;background:#123d37;color:#b8ffe2}
+@media(max-width:650px){.aim-cursor{width:24px;height:24px}.aim-cursor:before{width:34px}.aim-cursor:after{height:34px}}
