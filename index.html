@@ -31,7 +31,8 @@
     <section class="viewport-wrap">
       <div id="gameViewport" aria-label="互動式 3D 棒球場"></div>
       <div class="view-chip"><span class="view-dot"></span><span id="viewName">全場視角</span></div>
-      <div class="field-hint" id="fieldHint">點擊「投球」開始練習</div>
+      <div class="field-hint" id="fieldHint">滑鼠移動瞄準球的位置，再按「揮棒」</div>
+      <div id="aimCursor" class="aim-cursor" aria-hidden="true"></div>
       <div class="loading" id="loading"><div class="loader"></div><b>正在建構球場</b><span>載入 3D 場景與球員模型…</span></div>
       <div class="viewport-bottom"><span>3D MATCH ENGINE <b>•</b> REAL-TIME SCENE</span><span>THREE.JS</span></div>
     </section>
@@ -49,6 +50,7 @@
         <div class="action-copy"><small>PHASE 01 · INTERACTIVE DEMO</small><b id="actionTitle">準備開始練習</b><span id="actionDescription">按下投球，等待球進入打擊區，再抓準時機揮棒。</span></div>
         <div class="action-buttons">
           <button id="pitchBtn" class="secondary-btn"><span>↗</span> 投球</button>
+          <button id="aiToggle" class="secondary-btn active" type="button">AI 對手：開</button>
           <button id="swingBtn" class="primary-btn"><span>⚡</span> 揮棒</button>
         </div>
       </div>
