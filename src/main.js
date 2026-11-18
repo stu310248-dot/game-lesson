@@ -311,6 +311,12 @@ let swingStartedAt = 0;
 let pitcherThrowStartedAt = -10;
 let batterSwinging = false;
 let hitMessageTimer = 0;
+let aimPoint = new THREE.Vector2(0, 1.55);
+let aimScreen = { x: 0.5, y: 0.5 };
+let aiOpponentEnabled = true;
+let aiPitchCooldown = 1.4;
+const aimCursor = document.querySelector('#aimCursor');
+const aiToggle = document.querySelector('#aiToggle');
 const clock = new THREE.Clock();
 const match = new MatchEngine(syncMatchUI);
 
@@ -411,7 +417,7 @@ function swing() {
       const roll = Math.random();
       const kind = roll < 0.12 + quality * 0.12 ? 'homer' : roll < 0.38 ? 'double' : roll < 0.48 ? 'triple' : 'single';
       pendingHitKind = kind;
-      isGroundBall = kind !== 'homer' && launch < 8.2;
+      isGroundBall = kind !== 'homer' && (launch < 7.4 || (aimPoint.y < 1.15 && quality > 0.2));
       ballMode = 'hit';
       catchResolved = false;
       ballVelocity.set(direction, launch, -power);
@@ -419,9 +425,9 @@ function swing() {
         !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
       ballAge = 0;
       setView('field');
-      setHint(kind === 'homer' ? '全壘打！球飛越外野！' : quality > 0.68 ? '紮實擊球！球飛向外野！' : '擊球形成安打！');
+      setHint(isGroundBall ? '瞄準成功！形成滾地球！' : kind === 'homer' ? '全壘打！球飛越外野！' : quality > 0.68 ? '紮實擊球！形成平飛／高飛球！' : '擊球形成安打！');
       actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : '安打！';
-      actionDescription.textContent = '球正在 3D 球場中飛行，觀察球的落點。';
+      actionDescription.textContent = isGroundBall ? '滾地球沿內野方向滾動，守備 AI 會嘗試處理。' : '依照滑鼠瞄準位置與揮棒時機，球形成飛球或平飛球。';
       hitMessageTimer = 2.8;
     } else {
       pitchResolved = true;
@@ -458,8 +464,25 @@ document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('cl
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = 1.4; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
+mount.addEventListener('pointermove', event => {
+  const rect = mount.getBoundingClientRect();
+  const nx = THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width, 0, 1);
+  const ny = THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height, 0, 1);
+  aimScreen = { x: nx, y: ny };
+  // Map the batting-zone cursor into a controllable contact point.
+  aimPoint.set((nx - 0.5) * 4.2, THREE.MathUtils.clamp(2.5 - ny * 2.0, 0.45, 2.45));
+  if (aimCursor) { aimCursor.style.left = `${nx * 100}%`; aimCursor.style.top = `${ny * 100}%`; }
+});
+mount.addEventListener('pointerleave', () => { if (aimCursor) aimCursor.style.opacity = '0'; });
+mount.addEventListener('pointerenter', () => { if (aimCursor) aimCursor.style.opacity = '1'; });
+aiToggle?.addEventListener('click', () => {
+  aiOpponentEnabled = !aiOpponentEnabled;
+  aiToggle.classList.toggle('active', aiOpponentEnabled);
+  aiToggle.textContent = aiOpponentEnabled ? 'AI 對手：開' : 'AI 對手：關';
+  setHint(aiOpponentEnabled ? 'AI 對手已啟用：自動投球。' : 'AI 對手已暫停：請手動按投球。');
+});
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
   else await document.exitFullscreen?.();
