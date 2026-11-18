@@ -250,14 +250,14 @@ seam.rotation.set(0.6,0.4,0.2); ball.add(seam);
 
 const cameraViews = {
   broadcast: { position: [54, 48, 65], target: [0, 0, -5], label: '全場視角' },
-  batter: { position: [-8, 4.8, 30], target: [0, 2, 0], label: '打擊視角' },
+  batter: { position: [-5.4, 4.2, 28.8], target: [0, 1.7, 0], label: '打者視角' },
   pitcher: { position: [0, 4.5, -12], target: [0, 1.5, 22], label: '投球視角' },
   field: { position: [34, 25, -35], target: [0, 0, 4], label: '守備視角' },
   runner: { position: [22, 12, 29], target: [0, 0, 7], label: '跑壘視角' }
 };
-let currentView = 'broadcast';
-let cameraFrom = new THREE.Vector3(...cameraViews.broadcast.position);
-let cameraTargetFrom = new THREE.Vector3(...cameraViews.broadcast.target);
+let currentView = 'batter';
+let cameraFrom = new THREE.Vector3(...cameraViews.batter.position);
+let cameraTargetFrom = new THREE.Vector3(...cameraViews.batter.target);
 let cameraTween = 1;
 let ballMode = 'idle';
 let ballVelocity = new THREE.Vector3();
@@ -493,6 +493,14 @@ changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
 document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
+// Left-click directly on the 3D field to swing, like a baseball batting game.
+mount.addEventListener('pointerdown', event => {
+  if (event.button !== 0 || event.isPrimary === false) return;
+  if (event.pointerType === 'mouse') {
+    event.preventDefault();
+    swing();
+  }
+});
 mount.addEventListener('pointermove', event => {
   const rect = mount.getBoundingClientRect();
   const nx = THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width, 0, 1);
