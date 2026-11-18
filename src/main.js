@@ -192,7 +192,40 @@ const fielders = fielderPositions.map((p,i)=>makePlayer(i<2?blueMat:redMat,p,'fi
 const runners = [0,1,2].map(() => makePlayer(blueMat, [0,-20,0], 'runner'));
 runners.forEach(r => { r.visible = false; });
 const runnerBasePositions = [[15.5,0,6.5],[0,0,-9],[-15.5,0,6.5]];
+const homeRunnerPosition = [0,0,22];
 let chasingFielder = null;
+
+function animateRunnersToBases(baseState) {
+  const active = runners.filter(r => r.visible);
+  const targets = baseState.map((occupied, index) => occupied ? index : -1).filter(index => index >= 0);
+  const unused = [...active];
+  const assignments = [];
+  for (const targetIndex of targets) {
+    const target = new THREE.Vector3(...runnerBasePositions[targetIndex]);
+    let chosen = null;
+    if (unused.length) {
+      chosen = unused.reduce((best, runner) =>
+        !best || runner.position.distanceTo(target) < best.position.distanceTo(target) ? runner : best, null);
+      unused.splice(unused.indexOf(chosen), 1);
+    } else {
+      chosen = runners.find(r => !r.visible && !assignments.some(a => a.runner === r));
+      if (chosen) chosen.position.set(...homeRunnerPosition);
+    }
+    if (!chosen) continue;
+    chosen.visible = true;
+    chosen.userData.runFrom = chosen.position.clone();
+    chosen.userData.runTo = target;
+    chosen.userData.runProgress = 0;
+    assignments.push({ runner: chosen, targetIndex });
+  }
+  for (const runner of runners) {
+    if (!assignments.some(a => a.runner === runner)) {
+      runner.visible = false;
+      runner.userData.runProgress = 1;
+      runner.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+    }
+  }
+}
 batter.rotation.y = -0.2; catcher.rotation.y = Math.PI;
 
 // Bat is attached to a shoulder-height pivot so the swing rotates around the player's hands.
@@ -249,10 +282,7 @@ function syncMatchUI(state) {
   const baseText = ['一壘','二壘','三壘'].map((name,i)=>state.bases[i] ? name+'●' : name+'○').join('　');
   const baseNode = document.querySelector('#baseStatus');
   if (baseNode) baseNode.textContent = baseText;
-  state.bases.forEach((occupied, i) => {
-    runners[i].visible = occupied;
-    if (occupied) runners[i].position.set(...runnerBasePositions[i]);
-  });
+  animateRunnersToBases(state.bases);
   if (state.lastCall) setHint(state.lastCall);
   if (state.gameOver) {
     actionTitle.textContent = '比賽結束';
@@ -392,6 +422,21 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.04);
   const now = performance.now() / 1000;
+
+  runners.forEach(runner => {
+    if (runner.visible && runner.userData.runProgress < 1) {
+      runner.userData.runProgress = Math.min(1, runner.userData.runProgress + dt * 1.15);
+      const t = runner.userData.runProgress;
+      const eased = t * t * (3 - 2 * t);
+      runner.position.lerpVectors(runner.userData.runFrom, runner.userData.runTo, eased);
+      runner.position.y = Math.sin(t * Math.PI) * 0.16;
+      const stride = Math.sin(now * 13) * (1 - t) * 0.55;
+      runner.userData.legs[0].rotation.x = stride;
+      runner.userData.legs[1].rotation.x = -stride;
+      runner.rotation.y = Math.atan2(runner.userData.runTo.x - runner.position.x, runner.userData.runTo.z - runner.position.z);
+      if (t >= 1) runner.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+    }
+  });
 
   const view = cameraViews[currentView];
   if (cameraTween < 1) {
