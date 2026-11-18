@@ -196,6 +196,10 @@ const homeRunnerPosition = [0,0,22];
 let chasingFielder = null;
 let catchResolved = false;
 let catchAnimationUntil = 0;
+let pendingHitKind = 'single';
+let isGroundBall = false;
+let throwStartedAt = 0;
+let throwFielder = null;
 
 function animateRunnersToBases(baseState) {
   const active = runners.filter(r => r.visible);
@@ -363,7 +367,8 @@ function swing() {
       const launch = 5 + quality * 12;
       const roll = Math.random();
       const kind = roll < 0.12 + quality * 0.12 ? 'homer' : roll < 0.38 ? 'double' : roll < 0.48 ? 'triple' : 'single';
-      match.pitch({ contact: true, result: kind });
+      pendingHitKind = kind;
+      isGroundBall = kind !== 'homer' && launch < 8.2;
       ballMode = 'hit';
       catchResolved = false;
       ballVelocity.set(direction, launch, -power);
@@ -408,7 +413,7 @@ resize();
 document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
@@ -453,6 +458,24 @@ function animate() {
   }
   camera.lookAt(controlsTarget);
 
+  if (ballMode === 'throw') {
+    const progress = Math.min(1, (now - throwStartedAt) / 0.48);
+    const start = new THREE.Vector3(throwFielder.position.x, 1.65, throwFielder.position.z);
+    const end = new THREE.Vector3(15.5, 1.25, 6.5);
+    ball.position.lerpVectors(start, end, progress);
+    ball.rotation.x += dt * 14;
+    if (progress >= 1) {
+      ball.visible = false; ballMode = 'idle';
+      throwFielder.userData.arms[0].rotation.z = -0.32;
+      throwFielder = null;
+      match.batterNumber++;
+      match.addOut('滾地球傳一壘封殺！打者出局');
+      setHint('一壘接球完成！打者出局');
+      actionTitle.textContent = '傳一壘封殺！';
+      actionDescription.textContent = '守備傳球成功，出局數已更新。';
+    }
+  }
+
   if (ballMode === 'pitch' || ballMode === 'hit') {
     ballAge += dt;
     ball.position.addScaledVector(ballVelocity, dt);
@@ -471,7 +494,7 @@ function animate() {
         chasingFielder.userData.legs[0].rotation.x = Math.sin(now * 11) * 0.42;
         chasingFielder.userData.legs[1].rotation.x = -Math.sin(now * 11) * 0.42;
         const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        if (!catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
+        if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
           catchResolved = true;
           ball.visible = false; ballMode = 'idle';
           ballVelocity.set(0, 0, 0);
@@ -485,6 +508,23 @@ function animate() {
           actionTitle.textContent = '接殺出局！';
           actionDescription.textContent = '守備員成功接住飛球，出局數已更新。';
           chasingFielder = null;
+        }
+      }
+      if (isGroundBall && !catchResolved && chasingFielder && ball.position.y <= 0.3 && ballAge > 0.45) {
+        const distanceToBall = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
+        if (distanceToBall < 2.1) {
+          catchResolved = true;
+          throwFielder = chasingFielder;
+          throwStartedAt = now;
+          ball.position.set(throwFielder.position.x, 1.65, throwFielder.position.z);
+          ball.visible = true;
+          ballMode = 'throw';
+          ballAge = 0;
+          throwFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+          throwFielder.userData.arms[0].rotation.z = 0.95;
+          setHint('守備員接到滾地球，傳向一壘！');
+          actionTitle.textContent = '守備傳球！';
+          actionDescription.textContent = '守備員正將球傳往一壘。';
         }
       }
       ballVelocity.y -= 17 * dt;
@@ -502,6 +542,13 @@ function animate() {
           chasingFielder = null;
         }
         ball.visible = false; ballMode = 'idle';
+        if (!catchResolved) {
+          match.pitch({ contact: true, result: pendingHitKind });
+          setHint('球落地形成安打！');
+          actionTitle.textContent = pendingHitKind === 'homer' ? 'HOME RUN！全壘打' : pendingHitKind === 'double' ? '二壘安打！' : pendingHitKind === 'triple' ? '三壘安打！' : '安打！';
+          actionDescription.textContent = '球已落地，打者與跑者完成推進。';
+        }
+        chasingFielder = null;
         setHint('球已停止，按「投球」繼續比賽');
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
       }
