@@ -407,39 +407,59 @@ function swing() {
     pitchWasSwungAt = true;
     const inContactWindow = ball.position.z > 11.5 && ball.position.z < 22.5 && ballAge > 0.32 && ballAge < 1.55;
     const timing = inContactWindow ? Math.abs(ball.position.z - 17.2) : 99;
-    const centerOffset = Math.abs(ball.position.x) * 0.34 + Math.abs(ball.position.y - 1.55) * 0.25;
-    const quality = Math.max(0, 1 - timing / 5.2 - centerOffset);
+    const aimOffset = Math.hypot(ball.position.x - aimPoint.x, ball.position.y - aimPoint.y);
+    const centerOffset = aimOffset * 0.48 + Math.abs(ball.position.x) * 0.10 + Math.abs(ball.position.y - 1.55) * 0.08;
+    const quality = Math.max(0, 1 - timing / 6.0 - centerOffset * 0.55);
     if (inContactWindow && quality > 0.12) {
-      pitchResolved = true;
-      const direction = (Math.random() - 0.5) * 15;
-      const power = 19 + quality * 22;
-      const launch = 5 + quality * 12;
-      const roll = Math.random();
-      const kind = roll < 0.12 + quality * 0.12 ? 'homer' : roll < 0.38 ? 'double' : roll < 0.48 ? 'triple' : 'single';
-      pendingHitKind = kind;
-      isGroundBall = kind !== 'homer' && (launch < 7.4 || (aimPoint.y < 1.15 && quality > 0.2));
-      ballMode = 'hit';
-      catchResolved = false;
-      ballVelocity.set(direction, launch, -power);
-      chasingFielder = fielders.reduce((best, player) =>
-        !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
-      ballAge = 0;
-      setView('field');
-      setHint(isGroundBall ? '瞄準成功！形成滾地球！' : kind === 'homer' ? '全壘打！球飛越外野！' : quality > 0.68 ? '紮實擊球！形成平飛／高飛球！' : '擊球形成安打！');
-      actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : '安打！';
-      actionDescription.textContent = isGroundBall ? '滾地球沿內野方向滾動，守備 AI 會嘗試處理。' : '依照滑鼠瞄準位置與揮棒時機，球形成飛球或平飛球。';
-      hitMessageTimer = 2.8;
+      // Contact is not guaranteed: timing, aim and batter skill all affect the result.
+      const contactChance = THREE.MathUtils.clamp(0.16 + quality * 0.66, 0.22, 0.82);
+      if (Math.random() > contactChance) {
+        pitchResolved = true;
+        if (quality > 0.46 && Math.random() < 0.42) {
+          match.foul();
+          setHint('擦棒界外球！兩好球後界外球不增加好球數。');
+          actionTitle.textContent = '界外球';
+          actionDescription.textContent = '滑鼠瞄準與揮棒時機都會影響擊球結果。';
+        } else {
+          match.pitch({ swung: true });
+          setHint('揮棒落空！');
+          actionTitle.textContent = '揮棒落空';
+          actionDescription.textContent = '調整瞄準位置，並抓準球進入打擊區的時機。';
+        }
+      } else {
+        pitchResolved = true;
+        const direction = THREE.MathUtils.clamp((aimPoint.x - ball.position.x) * 2.8 + (Math.random() - 0.5) * 5, -18, 18);
+        const power = 17 + quality * 22;
+        // Low aim sends the ball along the ground; high aim produces a liner or fly ball.
+        const launch = THREE.MathUtils.clamp(4 + (aimPoint.y - ball.position.y) * 4.8 + (quality - 0.5) * 4, 1.5, 18);
+        const roll = Math.random();
+        // Keep extra-base hits uncommon; most well-hit balls are singles.
+        const kind = roll < 0.025 ? 'homer' : roll < 0.095 ? 'double' : roll < 0.11 ? 'triple' : 'single';
+        pendingHitKind = kind;
+        isGroundBall = kind !== 'homer' && launch < 6.0;
+        ballMode = 'hit';
+        catchResolved = false;
+        ballVelocity.set(direction, launch, -power);
+        chasingFielder = fielders.reduce((best, player) =>
+          !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
+        ballAge = 0;
+        setView('field');
+        setHint(isGroundBall ? '擊球成功！形成滾地球，守備 AI 正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！形成平飛／高飛球，觀察守備反應。');
+        actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : isGroundBall ? '滾地球！' : '擊球飛向外野！';
+        actionDescription.textContent = '擊球結果會受滑鼠瞄準高度、方向與揮棒時機影響。守備 AI 會依球的落點追球。';
+        hitMessageTimer = 2.8;
+      }
     } else {
       pitchResolved = true;
       match.pitch({ swung: true });
       setHint('揮棒落空！');
       actionTitle.textContent = '揮棒落空';
-      actionDescription.textContent = '調整揮棒時機與擊球位置。';
+      actionDescription.textContent = '調整瞄準位置與揮棒時機，再試一次。';
     }
   } else {
     setHint('揮棒完成，等待下一球');
     actionTitle.textContent = '揮棒完成';
-    actionDescription.textContent = '按「投球」開始下一球。';
+    actionDescription.textContent = '按「投球」或等待 AI 對手投出下一球。';
   }
 }
 function finishPitch() {
