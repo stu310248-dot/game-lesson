@@ -31,7 +31,7 @@
     <section class="viewport-wrap">
       <div id="gameViewport" aria-label="互動式 3D 棒球場"></div>
       <div class="view-chip"><span class="view-dot"></span><span id="viewName">全場視角</span></div>
-      <div class="field-hint" id="fieldHint">滑鼠移動瞄準球的位置，再按「揮棒」</div>
+      <div class="field-hint" id="fieldHint">滑鼠移動瞄準；球進來時按左鍵揮棒</div>
       <div id="aimCursor" class="aim-cursor" aria-hidden="true"></div>
       <div class="loading" id="loading"><div class="loader"></div><b>正在建構球場</b><span>載入 3D 場景與球員模型…</span></div>
       <div class="viewport-bottom"><span>3D MATCH ENGINE <b>•</b> REAL-TIME SCENE</span><span>THREE.JS</span></div>
@@ -40,8 +40,8 @@
     <section class="control-deck">
       <div class="deck-heading"><div><small>CAMERA CONTROL</small><b>球場視角</b></div><span>選擇鏡頭</span></div>
       <div class="camera-buttons">
-        <button class="camera-btn active" data-view="broadcast"><span>▦</span>全場</button>
-        <button class="camera-btn" data-view="batter"><span>◉</span>打擊</button>
+        <button class="camera-btn" data-view="broadcast"><span>▦</span>全場</button>
+        <button class="camera-btn active" data-view="batter"><span>◉</span>打擊</button>
         <button class="camera-btn" data-view="pitcher"><span>◎</span>投球</button>
         <button class="camera-btn" data-view="field"><span>◇</span>守備</button>
         <button class="camera-btn" data-view="runner"><span>➤</span>跑壘</button>
@@ -55,7 +55,7 @@
         </div>
       </div>
       <div class="advanced-controls"><label>投手球種<select id="pitchType"><option value="fastball">四縫線快速球</option><option value="twoseam">二縫線快速球</option><option value="slider">滑球</option><option value="curve">曲球</option><option value="changeup">變速球</option><option value="splitter">指叉球</option><option value="sinker">伸卡球</option></select></label><label>登板投手<select id="pitcherSelect"><option value="0">陳曜廷・先發</option><option value="1">林奕辰・先發</option><option value="2">周柏翰・先發</option><option value="3">許承恩・中繼</option><option value="4">江子皓・終結者</option></select></label><button id="changePitcherBtn" class="secondary-btn">更換投手</button><span id="pitcherName">陳曜廷</span><span id="baseStatus">一壘○　　二壘○　　三壘○</span><div class="stamina-control"><span>投手體力</span><div class="stamina-track"><i id="staminaFill"></i></div><b id="staminaValue">100%</b></div><button id="restartBtn" class="secondary-btn">重新開始</button></div>
-      <div class="bottom-note"><span>鍵盤：<kbd>1</kbd>–<kbd>5</kbd> 切換視角　<kbd>空白鍵</kbd> 揮棒　<kbd>P</kbd> 投球</span><span>第一階段開發測試版</span></div>
+      <div class="bottom-note"><span>操作：滑鼠移動瞄準　<kbd>左鍵</kbd> 揮棒　<kbd>空白鍵</kbd> 揮棒　<kbd>P</kbd> 投球</span><span>第一階段開發測試版</span></div>
     </section>
   </main>
   <script type="module" src="/src/main.js"></script>
