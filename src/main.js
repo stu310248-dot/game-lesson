@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import './style-placeholder.js';
+import '../styles.css';
 
 const mount = document.querySelector('#gameViewport');
 const loading = document.querySelector('#loading');
