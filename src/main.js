@@ -217,6 +217,7 @@ let ballMode = 'idle';
 let ballVelocity = new THREE.Vector3();
 let ballAge = 0;
 let pitchNumber = 0;
+let pitchWasSwungAt = false;
 let balls = 0, strikes = 0, outs = 0;
 let swingUntil = 0;
 let swingStartedAt = 0;
@@ -247,6 +248,7 @@ function resetCount() {
 function nextPitch() {
   if (ballMode === 'pitch' || ballMode === 'hit') return;
   pitchNumber++;
+  pitchWasSwungAt = false;
   pitcherThrowStartedAt = performance.now() / 1000;
   const targetX = (Math.random() - 0.5) * 1.8;
   const targetY = 1.2 + Math.random() * 0.9;
@@ -265,6 +267,7 @@ function swing() {
   swingUntil = now + 0.42;
   batterSwinging = true;
   batPivot.rotation.z = -0.72;
+  if (ballMode === 'pitch') pitchWasSwungAt = true;
   if (ballMode === 'pitch' && ball.position.z > 9 && ball.position.z < 23 && ballAge > 0.48 && ballAge < 1.35) {
     const timing = Math.abs(ball.position.z - 17.2);
     const quality = Math.max(0, 1 - timing / 6);
@@ -290,14 +293,13 @@ function swing() {
   }
 }
 function finishPitch() {
-  if (ballMode === 'pitch') {
+  if (ballMode === 'pitch' && !pitchWasSwungAt) {
     balls = Math.min(4, balls + 1);
     if (balls >= 4) { resetCount(); setHint('四壞球（練習計數）'); }
     else setHint('球未進入好球帶，壞球 ' + balls);
     updateCount();
   }
   ball.visible = false; ballMode = 'idle';
-  if (bat.visible) bat.visible = false;
 }
 function resize() {
   const w = mount.clientWidth, h = mount.clientHeight;
