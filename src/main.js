@@ -13,7 +13,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91b8d2);
 scene.fog = new THREE.Fog(0x91b8d2, 85, 190);
 
-const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 260);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 260);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
 renderer.shadowMap.enabled = true;
@@ -250,7 +250,7 @@ seam.rotation.set(0.6,0.4,0.2); ball.add(seam);
 
 const cameraViews = {
   broadcast: { position: [54, 48, 65], target: [0, 0, -5], label: '全場視角' },
-  batter: { position: [-5.4, 4.2, 28.8], target: [0, 1.7, 0], label: '打者視角' },
+  batter: { position: [-5.0, 3.45, 30.2], target: [-0.2, 1.65, 0.8], label: '打者視角' },
   pitcher: { position: [0, 4.5, -12], target: [0, 1.5, 22], label: '投球視角' },
   field: { position: [34, 25, -35], target: [0, 0, 4], label: '守備視角' },
   runner: { position: [22, 12, 29], target: [0, 0, 7], label: '跑壘視角' }
@@ -311,8 +311,15 @@ let swingStartedAt = 0;
 let pitcherThrowStartedAt = -10;
 let batterSwinging = false;
 let hitMessageTimer = 0;
+const AIM_CONTACT_Z = 18.8;
+const aimRaycaster = new THREE.Raycaster();
+const aimPointer = new THREE.Vector2();
+const aimPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -AIM_CONTACT_Z);
+const aimHitPoint = new THREE.Vector3();
 let aimPoint = new THREE.Vector2(0, 1.55);
 let aimScreen = { x: 0.5, y: 0.5 };
+let pendingSwing = false;
+let swingImpactAt = 0;
 let aiOpponentEnabled = true;
 let aiPitchCooldown = 1.4;
 const aimCursor = document.querySelector('#aimCursor');
@@ -371,6 +378,7 @@ function nextPitch() {
   pitchNumber++;
   pitchWasSwungAt = false;
   pitchResolved = false;
+  pendingSwing = false;
   pitcherThrowStartedAt = performance.now() / 1000;
   const profiles = {
     fastball: { speed: 39, curve: 0.0, label: '四縫線快速球' },
@@ -403,70 +411,70 @@ function nextPitch() {
   actionTitle.textContent = profile.label + ' · ' + speedKmh + ' km/h';
   actionDescription.textContent = pitcherStamina < 30 ? '投手體力偏低，球速與控球都會下降。' : '球路會隨球種產生變化，抓準進壘時機揮棒。';
 }
+function resolveSwingContact() {
+  if (ballMode !== 'pitch' || pitchResolved) return;
+  const timingError = Math.abs(ball.position.z - AIM_CONTACT_Z);
+  const aimError = Math.hypot(ball.position.x - aimPoint.x, ball.position.y - aimPoint.y);
+  const timingScore = THREE.MathUtils.clamp(1 - timingError / 4.0, 0, 1);
+  const aimScore = THREE.MathUtils.clamp(1 - aimError / 1.65, 0, 1);
+  const quality = timingScore * 0.58 + aimScore * 0.42;
+
+  pitchResolved = true;
+  if (timingScore < 0.04 || aimScore < 0.04 || Math.random() > (0.12 + quality * 0.84)) {
+    if (quality > 0.48 && Math.random() < 0.28) {
+      match.foul();
+      setHint('擦棒界外球！');
+      actionTitle.textContent = '界外球';
+      actionDescription.textContent = '揮棒時機接近，但沒有把球打進界內。';
+    } else {
+      match.pitch({ swung: true });
+      setHint('揮棒落空！');
+      actionTitle.textContent = '揮棒落空';
+      actionDescription.textContent = '讓準星靠近來球，並在球接近本壘時按左鍵。';
+    }
+    return;
+  }
+
+  // Contact quality shapes launch angle and spray direction.
+  const verticalAim = aimPoint.y - ball.position.y;
+  const launch = THREE.MathUtils.clamp(7.2 + verticalAim * 7.0 + (quality - 0.5) * 2.2, 1.4, 16);
+  const direction = THREE.MathUtils.clamp((aimPoint.x - ball.position.x) * 6.0 + (Math.random() - 0.5) * (3.2 - quality * 1.8), -18, 18);
+  const roll = Math.random();
+  const kind = roll < 0.018 ? 'homer' : roll < 0.085 ? 'double' : roll < 0.10 ? 'triple' : 'single';
+  pendingHitKind = kind;
+  isGroundBall = kind !== 'homer' && launch < 5.6;
+  ballMode = 'hit';
+  catchResolved = false;
+  ballVelocity.set(direction, launch, -17 - quality * 19);
+  chasingFielder = fielders.reduce((best, player) =>
+    !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
+  ballAge = 0;
+  setView('field');
+  setHint(isGroundBall ? '擊球成功！滾地球！守備員正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！球飛向場內！');
+  actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : isGroundBall ? '滾地球！' : '安打機會！';
+  actionDescription.textContent = '擊球方向與高度依準星落點和揮棒時機計算。';
+  hitMessageTimer = 2.8;
+}
+
 function swing() {
   if (match.gameOver) return;
   const now = performance.now() / 1000;
+  if (batterSwinging && now - swingStartedAt < 0.18) return;
   swingStartedAt = now;
   swingUntil = now + 0.42;
   batterSwinging = true;
   batPivot.rotation.z = -0.72;
-  if (ballMode === 'pitch' && !pitchResolved) {
+
+  if (ballMode === 'pitch' && !pitchResolved && !pendingSwing) {
+    // The bat reaches its contact point shortly after the click, not instantly.
+    pendingSwing = true;
+    swingImpactAt = now + 0.10;
     pitchWasSwungAt = true;
-    const inContactWindow = ball.position.z > 11.5 && ball.position.z < 22.5 && ballAge > 0.32 && ballAge < 1.55;
-    const timing = inContactWindow ? Math.abs(ball.position.z - 17.2) : 99;
-    const aimOffset = Math.hypot(ball.position.x - aimPoint.x, ball.position.y - aimPoint.y);
-    const centerOffset = aimOffset * 0.48 + Math.abs(ball.position.x) * 0.10 + Math.abs(ball.position.y - 1.55) * 0.08;
-    const quality = Math.max(0, 1 - timing / 6.0 - centerOffset * 0.55);
-    if (inContactWindow && quality > 0.12) {
-      // Contact is not guaranteed: timing, aim and batter skill all affect the result.
-      const contactChance = THREE.MathUtils.clamp(0.16 + quality * 0.66, 0.22, 0.82);
-      if (Math.random() > contactChance) {
-        pitchResolved = true;
-        if (quality > 0.46 && Math.random() < 0.42) {
-          match.foul();
-          setHint('擦棒界外球！兩好球後界外球不增加好球數。');
-          actionTitle.textContent = '界外球';
-          actionDescription.textContent = '滑鼠瞄準與揮棒時機都會影響擊球結果。';
-        } else {
-          match.pitch({ swung: true });
-          setHint('揮棒落空！');
-          actionTitle.textContent = '揮棒落空';
-          actionDescription.textContent = '調整瞄準位置，並抓準球進入打擊區的時機。';
-        }
-      } else {
-        pitchResolved = true;
-        const direction = THREE.MathUtils.clamp((aimPoint.x - ball.position.x) * 2.8 + (Math.random() - 0.5) * 5, -18, 18);
-        const power = 17 + quality * 22;
-        // Low aim sends the ball along the ground; high aim produces a liner or fly ball.
-        const launch = THREE.MathUtils.clamp(4 + (aimPoint.y - ball.position.y) * 4.8 + (quality - 0.5) * 4, 1.5, 18);
-        const roll = Math.random();
-        // Keep extra-base hits uncommon; most well-hit balls are singles.
-        const kind = roll < 0.025 ? 'homer' : roll < 0.095 ? 'double' : roll < 0.11 ? 'triple' : 'single';
-        pendingHitKind = kind;
-        isGroundBall = kind !== 'homer' && launch < 6.0;
-        ballMode = 'hit';
-        catchResolved = false;
-        ballVelocity.set(direction, launch, -power);
-        chasingFielder = fielders.reduce((best, player) =>
-          !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
-        ballAge = 0;
-        setView('field');
-        setHint(isGroundBall ? '擊球成功！形成滾地球，守備 AI 正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！形成平飛／高飛球，觀察守備反應。');
-        actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : isGroundBall ? '滾地球！' : '擊球飛向外野！';
-        actionDescription.textContent = '擊球結果會受滑鼠瞄準高度、方向與揮棒時機影響。守備 AI 會依球的落點追球。';
-        hitMessageTimer = 2.8;
-      }
-    } else {
-      pitchResolved = true;
-      match.pitch({ swung: true });
-      setHint('揮棒落空！');
-      actionTitle.textContent = '揮棒落空';
-      actionDescription.textContent = '調整瞄準位置與揮棒時機，再試一次。';
-    }
-  } else {
-    setHint('揮棒完成，等待下一球');
-    actionTitle.textContent = '揮棒完成';
-    actionDescription.textContent = '按「投球」或等待 AI 對手投出下一球。';
+    setHint('揮棒中！');
+    actionTitle.textContent = '揮棒！';
+    actionDescription.textContent = '球棒接觸球的瞬間會依照準星與來球位置判定。';
+  } else if (ballMode !== 'pitch') {
+    setHint('等待投手投球，看到來球再按左鍵。');
   }
 }
 function finishPitch() {
@@ -491,7 +499,7 @@ document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('cl
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 // Left-click directly on the 3D field to swing, like a baseball batting game.
 mount.addEventListener('pointerdown', event => {
@@ -506,8 +514,14 @@ mount.addEventListener('pointermove', event => {
   const nx = THREE.MathUtils.clamp((event.clientX - rect.left) / rect.width, 0, 1);
   const ny = THREE.MathUtils.clamp((event.clientY - rect.top) / rect.height, 0, 1);
   aimScreen = { x: nx, y: ny };
-  // Map the batting-zone cursor into a controllable contact point.
-  aimPoint.set((nx - 0.5) * 4.2, THREE.MathUtils.clamp(2.5 - ny * 2.0, 0.45, 2.45));
+  aimPointer.set(nx * 2 - 1, 1 - ny * 2);
+  aimRaycaster.setFromCamera(aimPointer, camera);
+  if (aimRaycaster.ray.intersectPlane(aimPlane, aimHitPoint)) {
+    aimPoint.set(
+      THREE.MathUtils.clamp(aimHitPoint.x, -2.8, 2.8),
+      THREE.MathUtils.clamp(aimHitPoint.y, 0.35, 2.75)
+    );
+  }
   if (aimCursor) { aimCursor.style.left = `${nx * 100}%`; aimCursor.style.top = `${ny * 100}%`; }
 });
 mount.addEventListener('pointerleave', () => { if (aimCursor) aimCursor.style.opacity = '0'; });
@@ -592,6 +606,10 @@ function animate() {
     if (ballMode === 'pitch' && activePitchCurve) {
       ball.position.x += activePitchCurve * dt * dt * 0.42;
       ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
+    }
+    if (ballMode === 'pitch' && pendingSwing && now >= swingImpactAt) {
+      pendingSwing = false;
+      resolveSwingContact();
     }
     if (ballMode === 'hit') {
       if (chasingFielder && ballAge < 2.8) {
