@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import '../styles.css';
+import { MatchEngine } from './match-engine.js';
 
 const mount = document.querySelector('#gameViewport');
 const loading = document.querySelector('#loading');
@@ -219,12 +220,36 @@ let ballAge = 0;
 let pitchNumber = 0;
 let pitchWasSwungAt = false;
 let balls = 0, strikes = 0, outs = 0;
+let activePitchType = 'fastball';
+let activePitchCurve = 0;
+let pitchInZone = true;
+let pitchResolved = false;
 let swingUntil = 0;
 let swingStartedAt = 0;
 let pitcherThrowStartedAt = -10;
 let batterSwinging = false;
 let hitMessageTimer = 0;
 const clock = new THREE.Clock();
+const match = new MatchEngine(syncMatchUI);
+
+function syncMatchUI(state) {
+  balls = state.balls; strikes = state.strikes; outs = state.outs;
+  document.querySelector('#balls').textContent = balls;
+  document.querySelector('#strikes').textContent = strikes;
+  document.querySelector('#outs').textContent = outs;
+  document.querySelector('#awayScore').textContent = state.score[0];
+  document.querySelector('#homeScore').textContent = state.score[1];
+  document.querySelector('#inningLabel').textContent = (state.half === '上' ? '▲ ' : '▼ ') + state.inning + ' 局' + state.half;
+  const baseText = ['一壘','二壘','三壘'].map((name,i)=>state.bases[i] ? name+'●' : name+'○').join('　');
+  const baseNode = document.querySelector('#baseStatus');
+  if (baseNode) baseNode.textContent = baseText;
+  if (state.lastCall) setHint(state.lastCall);
+  if (state.gameOver) {
+    actionTitle.textContent = '比賽結束';
+    actionDescription.textContent = state.lastCall + '。可重新開始一場比賽。';
+    document.querySelector('#pitchBtn').disabled = true;
+  }
+}
 
 function setView(name) {
   if (!cameraViews[name]) return;
@@ -246,60 +271,84 @@ function resetCount() {
   balls = 0; strikes = 0; updateCount();
 }
 function nextPitch() {
-  if (ballMode === 'pitch' || ballMode === 'hit') return;
+  if (ballMode === 'pitch' || ballMode === 'hit' || match.gameOver) return;
   pitchNumber++;
   pitchWasSwungAt = false;
+  pitchResolved = false;
   pitcherThrowStartedAt = performance.now() / 1000;
-  const targetX = (Math.random() - 0.5) * 1.8;
-  const targetY = 1.2 + Math.random() * 0.9;
+  const profiles = {
+    fastball: { speed: 39, curve: 0.0, label: '四縫線快速球' },
+    sinker: { speed: 34, curve: 3.0, label: '伸卡球' },
+    slider: { speed: 32, curve: 5.2, label: '滑球' },
+    curve: { speed: 27, curve: 6.5, label: '曲球' },
+    changeup: { speed: 28, curve: 1.8, label: '變速球' },
+    splitter: { speed: 31, curve: 2.7, label: '指叉球' },
+    twoseam: { speed: 36, curve: 2.1, label: '二縫線快速球' }
+  };
+  const profile = profiles[activePitchType] || profiles.fastball;
+  const targetX = (Math.random() - 0.5) * 2.4;
+  const targetY = 0.75 + Math.random() * 1.9;
+  pitchInZone = Math.abs(targetX) < 0.9 && targetY > 0.9 && targetY < 2.25;
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
+  activePitchCurve = profile.curve * (Math.random() < 0.5 ? -1 : 1);
   const destination = new THREE.Vector3(targetX, targetY, 19.7);
-  ballVelocity.copy(destination.sub(ball.position)).multiplyScalar(1 / 1.05);
-  setHint('球已投出！抓準時機揮棒');
-  actionTitle.textContent = '投球進行中';
-  actionDescription.textContent = '球正朝本壘飛來，按空白鍵或「揮棒」擊球。';
+  const duration = 34 / profile.speed;
+  ballVelocity.copy(destination.sub(ball.position)).multiplyScalar(1 / duration);
+  setView('batter');
+  setHint(profile.label + ' ' + profile.speed + ' m/s，球已投出！');
+  actionTitle.textContent = profile.label + ' · ' + profile.speed + ' km/h';
+  actionDescription.textContent = '球路會隨球種產生變化，抓準進壘時機揮棒。';
 }
 function swing() {
+  if (match.gameOver) return;
   const now = performance.now() / 1000;
   swingStartedAt = now;
   swingUntil = now + 0.42;
   batterSwinging = true;
   batPivot.rotation.z = -0.72;
-  if (ballMode === 'pitch') pitchWasSwungAt = true;
-  if (ballMode === 'pitch' && ball.position.z > 9 && ball.position.z < 23 && ballAge > 0.48 && ballAge < 1.35) {
-    const timing = Math.abs(ball.position.z - 17.2);
-    const quality = Math.max(0, 1 - timing / 6);
-    ballMode = 'hit';
-    ballVelocity.set((Math.random() - 0.5) * 9, 10 + quality * 6, -27 - quality * 13);
-    ballAge = 0;
-    setHint(quality > 0.62 ? '漂亮擊球！球飛向外野！' : '擊球！球飛向場內！');
-    actionTitle.textContent = quality > 0.62 ? '強勁擊球！' : '擊球成功';
-    actionDescription.textContent = '觀察球的飛行方向與落點；目前為第一階段物理原型。';
-    hitMessageTimer = 2.8;
-  } else {
-    if (ballMode === 'pitch') {
-      strikes = Math.min(3, strikes + 1); updateCount();
-      if (strikes >= 3) { outs = Math.min(3, outs + 1); resetCount(); document.querySelector('#outs').textContent = outs; }
-      setHint('揮棒落空！好球 ' + strikes);
-      actionTitle.textContent = '揮棒落空';
-      actionDescription.textContent = '留意投球抵達本壘的時機，再試一次。';
+  if (ballMode === 'pitch' && !pitchResolved) {
+    pitchWasSwungAt = true;
+    const inContactWindow = ball.position.z > 11.5 && ball.position.z < 22.5 && ballAge > 0.32 && ballAge < 1.55;
+    const timing = inContactWindow ? Math.abs(ball.position.z - 17.2) : 99;
+    const centerOffset = Math.abs(ball.position.x) * 0.34 + Math.abs(ball.position.y - 1.55) * 0.25;
+    const quality = Math.max(0, 1 - timing / 5.2 - centerOffset);
+    if (inContactWindow && quality > 0.12) {
+      pitchResolved = true;
+      const direction = (Math.random() - 0.5) * 15;
+      const power = 19 + quality * 22;
+      const launch = 5 + quality * 12;
+      const roll = Math.random();
+      const kind = roll < 0.12 + quality * 0.12 ? 'homer' : roll < 0.38 ? 'double' : roll < 0.48 ? 'triple' : 'single';
+      match.pitch({ contact: true, result: kind });
+      ballMode = 'hit';
+      ballVelocity.set(direction, launch, -power);
+      ballAge = 0;
+      setView('field');
+      setHint(kind === 'homer' ? '全壘打！球飛越外野！' : quality > 0.68 ? '紮實擊球！球飛向外野！' : '擊球形成安打！');
+      actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : '安打！';
+      actionDescription.textContent = '球正在 3D 球場中飛行，觀察球的落點。';
+      hitMessageTimer = 2.8;
     } else {
-      setHint('揮棒完成，請先投球');
-      actionTitle.textContent = '揮棒完成';
-      actionDescription.textContent = '按「投球」開始下一球。';
+      pitchResolved = true;
+      match.pitch({ swung: true });
+      setHint('揮棒落空！');
+      actionTitle.textContent = '揮棒落空';
+      actionDescription.textContent = '調整揮棒時機與擊球位置。';
     }
+  } else {
+    setHint('揮棒完成，等待下一球');
+    actionTitle.textContent = '揮棒完成';
+    actionDescription.textContent = '按「投球」開始下一球。';
   }
 }
 function finishPitch() {
-  if (ballMode === 'pitch' && !pitchWasSwungAt) {
-    balls = Math.min(4, balls + 1);
-    if (balls >= 4) { resetCount(); setHint('四壞球（練習計數）'); }
-    else setHint('球未進入好球帶，壞球 ' + balls);
-    updateCount();
+  if (ballMode === 'pitch' && !pitchResolved) {
+    pitchResolved = true;
+    match.pitch({ inZone: pitchInZone, swung: false });
   }
-  ball.visible = false; ballMode = 'idle';
+  ball.visible = false; ballMode = 'idle'; activePitchCurve = 0;
 }
 function resize() {
   const w = mount.clientWidth, h = mount.clientHeight;
@@ -313,6 +362,8 @@ resize();
 
 document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
+document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
@@ -345,6 +396,10 @@ function animate() {
   if (ballMode === 'pitch' || ballMode === 'hit') {
     ballAge += dt;
     ball.position.addScaledVector(ballVelocity, dt);
+    if (ballMode === 'pitch' && activePitchCurve) {
+      ball.position.x += activePitchCurve * dt * dt * 0.42;
+      ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
+    }
     if (ballMode === 'hit') {
       ballVelocity.y -= 17 * dt;
       if (ball.position.y < 0.28) {
@@ -357,7 +412,8 @@ function animate() {
       ball.rotation.x += dt * 8; ball.rotation.z += dt * 5;
       if (ballAge > 4.5 || Math.abs(ball.position.x) > 75 || ball.position.z < -90) {
         ball.visible = false; ballMode = 'idle';
-        setHint('球已停止，按「投球」繼續練習');
+        setHint('球已停止，按「投球」繼續比賽');
+        if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
       }
     } else if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
   }
