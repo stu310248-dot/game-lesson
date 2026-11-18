@@ -194,6 +194,8 @@ runners.forEach(r => { r.visible = false; });
 const runnerBasePositions = [[15.5,0,6.5],[0,0,-9],[-15.5,0,6.5]];
 const homeRunnerPosition = [0,0,22];
 let chasingFielder = null;
+let catchResolved = false;
+let catchAnimationUntil = 0;
 
 function animateRunnersToBases(baseState) {
   const active = runners.filter(r => r.visible);
@@ -363,6 +365,7 @@ function swing() {
       const kind = roll < 0.12 + quality * 0.12 ? 'homer' : roll < 0.38 ? 'double' : roll < 0.48 ? 'triple' : 'single';
       match.pitch({ contact: true, result: kind });
       ballMode = 'hit';
+      catchResolved = false;
       ballVelocity.set(direction, launch, -power);
       chasingFielder = fielders.reduce((best, player) =>
         !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
@@ -467,6 +470,22 @@ function animate() {
         chasingFielder.rotation.y = Math.atan2(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
         chasingFielder.userData.legs[0].rotation.x = Math.sin(now * 11) * 0.42;
         chasingFielder.userData.legs[1].rotation.x = -Math.sin(now * 11) * 0.42;
+        const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
+        if (!catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
+          catchResolved = true;
+          ball.visible = false; ballMode = 'idle';
+          ballVelocity.set(0, 0, 0);
+          chasingFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+          chasingFielder.userData.arms[0].rotation.z = 1.15;
+          chasingFielder.userData.arms[1].rotation.z = -1.05;
+          catchAnimationUntil = now + 0.75;
+          match.batterNumber++;
+          match.addOut('飛球接殺！打者出局');
+          setHint('守備員接殺成功！打者出局');
+          actionTitle.textContent = '接殺出局！';
+          actionDescription.textContent = '守備員成功接住飛球，出局數已更新。';
+          chasingFielder = null;
+        }
       }
       ballVelocity.y -= 17 * dt;
       if (ball.position.y < 0.28) {
@@ -488,6 +507,16 @@ function animate() {
       }
     } else if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
   }
+  if (catchAnimationUntil > 0 && now >= catchAnimationUntil) {
+    fielders.forEach(player => {
+      if (player.userData.arms) {
+        player.userData.arms[0].rotation.z = -0.32;
+        player.userData.arms[1].rotation.z = -0.32;
+      }
+    });
+    catchAnimationUntil = 0;
+  }
+
   // Pitcher wind-up and release: body turns, lead leg lifts, then the throwing arm drives forward.
   const throwAge = now - pitcherThrowStartedAt;
   if (throwAge >= 0 && throwAge < 0.9) {
