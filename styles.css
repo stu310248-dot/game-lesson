@@ -55,6 +55,8 @@ button{font:inherit;cursor:pointer}
 .player-card-strip b{font-size:14px;color:#f4f8ff;margin:3px 0}
 .player-card-strip span{padding:7px 10px;border:1px solid #294761;border-radius:7px;background:#10263d}
 .player-card-strip strong{color:#fff;margin-left:4px;font:800 15px "Barlow Condensed",sans-serif}
+.player-card-strip button{height:30px;padding:0 9px}
+.player-card-strip button:disabled{opacity:.42;cursor:not-allowed}
 .deck-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .deck-heading small,.action-copy small{display:block;font:600 9px "Barlow Condensed",sans-serif;letter-spacing:1.8px;color:#6f94b5}
 .deck-heading b{font-size:15px;display:block;margin-top:3px}

@@ -381,13 +381,33 @@ let selectedTeams = { away: 0, home: 1 };
 let selectedGameMode = 'quick';
 let autoGameEnabled = false;
 let autoGameTimer = 0;
-const developmentPlayers = [
+let developmentRewarded = false;
+const defaultDevelopmentPlayers = [
   { name: '陳曜廷', role: '先發投手', speed: 156, control: 82 },
   { name: '林奕辰', role: '先發投手', speed: 151, control: 86 },
   { name: '周柏翰', role: '先發投手', speed: 148, control: 79 },
   { name: '許承恩', role: '中繼投手', speed: 153, control: 81 },
   { name: '江子皓', role: '終結者', speed: 158, control: 77 }
 ];
+function loadDevelopmentPlayers() {
+  const saved = localStorage.getItem('diamond-baseball-development');
+  if (!saved) return defaultDevelopmentPlayers.map(player => ({ ...player, level: 12, xp: 0, trainingPoints: 3 }));
+  try {
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed) || parsed.length !== defaultDevelopmentPlayers.length) throw new Error('invalid player save');
+    return parsed.map((player, index) => ({ ...defaultDevelopmentPlayers[index], ...player }));
+  } catch (error) {
+    console.warn('球員培養資料無法讀取，已使用預設資料。', error);
+    return defaultDevelopmentPlayers.map(player => ({ ...player, level: 12, xp: 0, trainingPoints: 3 }));
+  }
+}
+const developmentPlayers = loadDevelopmentPlayers();
+developmentPlayers.forEach((player, index) => {
+  pitcherRoster[index].speed += (player.speed - defaultDevelopmentPlayers[index].speed) * 0.006;
+});
+function saveDevelopmentPlayers() {
+  localStorage.setItem('diamond-baseball-development', JSON.stringify(developmentPlayers));
+}
 function populateTeamSelects() {
   [awayTeamSelect, homeTeamSelect].forEach(select => {
     if (!select) return;
@@ -411,10 +431,41 @@ function updatePlayerCard() {
   const player = developmentPlayers[activePitcherIndex];
   document.querySelector('#activePlayerName').textContent = player.name;
   document.querySelector('#activePlayerRole').textContent =
-    `${player.role}・LV ${12 + activePitcherIndex}`;
+    `${player.role}・LV ${player.level}`;
   document.querySelector('#playerSpeed').textContent = player.speed;
   document.querySelector('#playerControl').textContent = player.control;
   document.querySelector('#playerCondition').textContent = Math.round(pitcherStamina);
+  document.querySelector('#playerXp').textContent = player.xp;
+  document.querySelector('#trainingPoints').textContent = player.trainingPoints;
+  document.querySelector('#speedTrainingBtn').disabled = player.trainingPoints < 1;
+  document.querySelector('#controlTrainingBtn').disabled = player.trainingPoints < 1;
+  document.querySelector('#recoveryTrainingBtn').disabled = player.trainingPoints < 1;
+}
+function trainPlayer(type) {
+  const player = developmentPlayers[activePitcherIndex];
+  if (player.trainingPoints < 1) {
+    setHint('訓練點不足，請先完成比賽取得訓練點。');
+    return;
+  }
+  if (type === 'speed') {
+    player.speed = Math.min(170, player.speed + 1);
+    pitcherRoster[activePitcherIndex].speed += 0.006;
+  } else if (type === 'control') {
+    player.control = Math.min(99, player.control + 2);
+  } else {
+    pitcherStamina = Math.min(100, pitcherStamina + 25);
+  }
+  player.trainingPoints -= 1;
+  player.xp += 20;
+  if (player.xp >= player.level * 100) {
+    player.xp -= player.level * 100;
+    player.level += 1;
+    setHint(`${player.name} 升級至 LV ${player.level}！`);
+  } else {
+    setHint(`${player.name} 完成${type === 'speed' ? '球速' : type === 'control' ? '控球' : '體能'}訓練。`);
+  }
+  saveDevelopmentPlayers();
+  updateStaminaUI();
 }
 populateTeamSelects();
 updateTeamUI();
@@ -533,6 +584,12 @@ function syncMatchUI(state) {
     }
   } else if (state.lastCall) setHint(state.lastCall);
   if (state.gameOver) {
+    if (!developmentRewarded) {
+      developmentPlayers[activePitcherIndex].trainingPoints += 1;
+      saveDevelopmentPlayers();
+      developmentRewarded = true;
+      updatePlayerCard();
+    }
     actionTitle.textContent = '比賽結束';
     actionDescription.textContent = state.lastCall + '。可重新開始一場比賽。';
     document.querySelector('#pitchBtn').disabled = true;
@@ -592,7 +649,8 @@ function nextPitch() {
   updateStaminaUI();
   const fatigue = 1 - (100 - pitcherStamina) * 0.0028;
   const effectiveSpeed = profile.speed * fatigue * pitcherRoster[activePitcherIndex].speed;
-  const controlSpread = 2.4 + (100 - pitcherStamina) * 0.025;
+  const controlRating = developmentPlayers[activePitcherIndex].control;
+  const controlSpread = Math.max(1.1, 3.2 - controlRating * 0.012 + (100 - pitcherStamina) * 0.025);
   const targetX = (Math.random() - 0.5) * controlSpread;
   const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
   // The final strike/ball call is made from the ball's actual position at the plate.
@@ -724,8 +782,12 @@ document.querySelector('#pitchBtn').addEventListener('click', () => {
 });
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
+document.querySelector('#speedTrainingBtn')?.addEventListener('click', () => trainPlayer('speed'));
+document.querySelector('#controlTrainingBtn')?.addEventListener('click', () => trainPlayer('control'));
+document.querySelector('#recoveryTrainingBtn')?.addEventListener('click', () => trainPlayer('recovery'));
 function restartMatch() {
   match.reset();
+  developmentRewarded = false;
   pitcherRoster.forEach(p => { p.stamina = 100; });
   activePitcherIndex = 0;
   pitcherStamina = 100;
