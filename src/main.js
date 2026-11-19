@@ -238,6 +238,7 @@ const homeRunnerPosition = [0,0,22];
 let chasingFielder = null;
 let catchResolved = false;
 let catchAnimationUntil = 0;
+let catcherReceiving = false;
 let pendingHitKind = 'single';
 let isGroundBall = false;
 let throwStartedAt = 0;
@@ -493,6 +494,7 @@ function nextPitch() {
   }
   pitchNumber++;
   pitchWasSwungAt = false;
+  catcherReceiving = false;
   pitchResolved = false;
   pendingSwing = false;
   pitcherThrowStartedAt = performance.now() / 1000;
@@ -911,7 +913,15 @@ function animate() {
         setHint('球已停止，按「投球」繼續比賽');
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
       }
-    } else if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
+    } else {
+      if (ball.position.z > 20.1 && !catcherReceiving && !pendingSwing) {
+        catcherReceiving = true;
+        catcher.userData.arms[0].rotation.z = 0.72;
+        catcher.userData.arms[1].rotation.z = -0.72;
+        catchAnimationUntil = now + 0.42;
+      }
+      if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
+    }
   }
   if (catchAnimationUntil > 0 && now >= catchAnimationUntil) {
     fielders.forEach(player => {
@@ -920,17 +930,34 @@ function animate() {
         player.userData.arms[1].rotation.z = -0.32;
       }
     });
+    catcher.userData.arms[0].rotation.z = -0.32;
+    catcher.userData.arms[1].rotation.z = -0.32;
     catchAnimationUntil = 0;
   }
 
-  // Pitcher wind-up and release: body turns, lead leg lifts, then the throwing arm drives forward.
+  // Pitcher animation: gather, leg lift, drive/release, then forward follow-through.
   const throwAge = now - pitcherThrowStartedAt;
-  if (throwAge >= 0 && throwAge < 0.9) {
-    const wind = Math.sin(Math.min(1, throwAge / 0.9) * Math.PI);
-    pitcher.userData.torso.rotation.z = -0.05 + wind * 0.16;
-    pitcher.userData.arms[1].rotation.z = -0.32 - wind * 1.05;
-    pitcher.userData.arms[0].rotation.z = 0.32 + wind * 0.28;
-    pitcher.userData.legs[0].rotation.x = wind * 0.32;
+  if (throwAge >= 0 && throwAge < 1.05) {
+    const p = throwAge / 1.05;
+    if (p < 0.42) {
+      const lift = Math.sin((p / 0.42) * Math.PI * 0.5);
+      pitcher.userData.torso.rotation.z = -0.05 - lift * 0.13;
+      pitcher.userData.arms[1].rotation.z = -0.32 - lift * 0.92;
+      pitcher.userData.arms[0].rotation.z = 0.32 + lift * 0.22;
+      pitcher.userData.legs[0].rotation.x = lift * 0.78;
+    } else if (p < 0.68) {
+      const drive = (p - 0.42) / 0.26;
+      pitcher.userData.torso.rotation.z = -0.18 + drive * 0.32;
+      pitcher.userData.arms[1].rotation.z = -1.24 + drive * 1.75;
+      pitcher.userData.arms[0].rotation.z = 0.54 - drive * 0.72;
+      pitcher.userData.legs[0].rotation.x = 0.78 - drive * 0.9;
+    } else {
+      const follow = (p - 0.68) / 0.32;
+      pitcher.userData.torso.rotation.z = 0.14 * (1 - follow);
+      pitcher.userData.arms[1].rotation.z = 0.51 - follow * 0.78;
+      pitcher.userData.arms[0].rotation.z = -0.18 + follow * 0.5;
+      pitcher.userData.legs[0].rotation.x = -0.12 * (1 - follow);
+    }
   } else {
     pitcher.userData.torso.rotation.z = -0.05;
     pitcher.userData.arms[1].rotation.z = -0.32;
