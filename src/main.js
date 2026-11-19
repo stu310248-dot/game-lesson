@@ -200,6 +200,9 @@ let pendingHitKind = 'single';
 let isGroundBall = false;
 let throwStartedAt = 0;
 let throwFielder = null;
+let selectedThrowBase = 'first';
+let runnerAggressive = false;
+let throwWasForceOut = true;
 
 function animateRunnersToBases(baseState) {
   const active = runners.filter(r => r.visible);
@@ -528,6 +531,23 @@ changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
 document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
+document.querySelector('#runnerNormalBtn')?.addEventListener('click', () => {
+  runnerAggressive = false;
+  document.querySelector('#runnerNormalBtn').classList.add('active');
+  document.querySelector('#runnerAggressiveBtn')?.classList.remove('active');
+  setHint('跑壘策略：穩健推進。');
+});
+document.querySelector('#runnerAggressiveBtn')?.addEventListener('click', () => {
+  runnerAggressive = true;
+  document.querySelector('#runnerAggressiveBtn').classList.add('active');
+  document.querySelector('#runnerNormalBtn')?.classList.remove('active');
+  setHint('跑壘策略：積極推進，長打時可能多得一個壘包，但也有風險。');
+});
+document.querySelectorAll('.throw-target').forEach(btn => btn.addEventListener('click', () => {
+  selectedThrowBase = btn.dataset.base;
+  document.querySelectorAll('.throw-target').forEach(item => item.classList.toggle('active', item === btn));
+  setHint('守備傳球目標：' + ({first:'一壘',second:'二壘',third:'三壘',home:'本壘'}[selectedThrowBase]));
+}));
 // Left-click directly on the 3D field to swing, like a baseball batting game.
 mount.addEventListener('pointerdown', event => {
   if (event.button !== 0 || event.isPrimary === false) return;
@@ -568,6 +588,12 @@ document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
 window.addEventListener('keydown', event => {
   if (event.code === 'Space') { event.preventDefault(); swing(); }
   if (event.key.toLowerCase() === 'p') nextPitch();
+  if (event.key === '1') document.querySelector('#runnerNormalBtn')?.click();
+  if (event.key === '2') document.querySelector('#runnerAggressiveBtn')?.click();
+  if (event.key.toLowerCase() === 'q') document.querySelector('.throw-target[data-base="first"]')?.click();
+  if (event.key.toLowerCase() === 'w') document.querySelector('.throw-target[data-base="second"]')?.click();
+  if (event.key.toLowerCase() === 'e') document.querySelector('.throw-target[data-base="third"]')?.click();
+  if (event.key.toLowerCase() === 'r') document.querySelector('.throw-target[data-base="home"]')?.click();
   const views = ['broadcast','batter','pitcher','field','runner'];
   if ('12345'.includes(event.key)) setView(views[Number(event.key)-1]);
 });
@@ -613,18 +639,36 @@ function animate() {
   if (ballMode === 'throw') {
     const progress = Math.min(1, (now - throwStartedAt) / 0.48);
     const start = new THREE.Vector3(throwFielder.position.x, 1.65, throwFielder.position.z);
-    const end = new THREE.Vector3(15.5, 1.25, 6.5);
+    const throwTargets = {
+      first: new THREE.Vector3(15.5, 1.25, 6.5),
+      second: new THREE.Vector3(0, 1.25, -9),
+      third: new THREE.Vector3(-15.5, 1.25, 6.5),
+      home: new THREE.Vector3(0, 1.25, 22)
+    };
+    const end = throwTargets[selectedThrowBase] || throwTargets.first;
     ball.position.lerpVectors(start, end, progress);
     ball.rotation.x += dt * 14;
     if (progress >= 1) {
       ball.visible = false; ballMode = 'idle';
       throwFielder.userData.arms[0].rotation.z = -0.32;
       throwFielder = null;
-      match.batterNumber++;
-      match.addOut('滾地球傳一壘封殺！打者出局');
-      setHint('一壘接球完成！打者出局');
-      actionTitle.textContent = '傳一壘封殺！';
-      actionDescription.textContent = '守備傳球成功，出局數已更新。';
+      const bases = match.snapshot().bases;
+      const forceAvailable = selectedThrowBase === 'first' ||
+        (selectedThrowBase === 'second' && bases[0]) ||
+        (selectedThrowBase === 'third' && bases[1]) ||
+        (selectedThrowBase === 'home' && bases[2]);
+      if (forceAvailable) {
+        match.batterNumber++;
+        match.addOut('守備傳向' + ({first:'一壘',second:'二壘',third:'三壘',home:'本壘'}[selectedThrowBase]) + '完成封殺！');
+        setHint('傳球封殺成功！');
+        actionTitle.textContent = '封殺成功！';
+        actionDescription.textContent = '你選擇的壘包有封殺機會，守備完成出局。';
+      } else {
+        match.pitch({ contact: true, result: pendingHitKind, aggressive: false });
+        setHint('傳球目標沒有封殺機會，打者安全上壘！');
+        actionTitle.textContent = '安全上壘';
+        actionDescription.textContent = '傳球沒有形成封殺，打者與跑者推進。';
+      }
     }
   }
 
@@ -691,6 +735,18 @@ function animate() {
           catchResolved = true;
           throwFielder = chasingFielder;
           throwStartedAt = now;
+          const currentBases = match.snapshot().bases;
+          const forceTargets = [
+            { key: 'first', available: true },
+            { key: 'second', available: currentBases[0] },
+            { key: 'third', available: currentBases[1] },
+            { key: 'home', available: currentBases[2] }
+          ];
+          if (match.half === '下' && aiOpponentEnabled) {
+            const options = forceTargets.filter(target => target.available);
+            selectedThrowBase = options.length ? options[Math.floor(Math.random() * options.length)].key : 'first';
+          }
+          document.querySelectorAll('.throw-target').forEach(btn => btn.classList.toggle('active', btn.dataset.base === selectedThrowBase));
           ball.position.set(throwFielder.position.x, 1.65, throwFielder.position.z);
           ball.visible = true;
           ballMode = 'throw';
@@ -718,7 +774,8 @@ function animate() {
         }
         ball.visible = false; ballMode = 'idle';
         if (!catchResolved) {
-          match.pitch({ contact: true, result: pendingHitKind });
+          const aiAggressive = match.half === '下' ? Math.random() < (pendingHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
+          match.pitch({ contact: true, result: pendingHitKind, aggressive: aiAggressive });
           setHint('球落地形成安打！');
           actionTitle.textContent = pendingHitKind === 'homer' ? 'HOME RUN！全壘打' : pendingHitKind === 'double' ? '二壘安打！' : pendingHitKind === 'triple' ? '三壘安打！' : '安打！';
           actionDescription.textContent = '球已落地，打者與跑者完成推進。';
