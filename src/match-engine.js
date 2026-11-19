@@ -143,6 +143,42 @@ export class MatchEngine {
     }
   }
 
+  steal(baseIndex, success) {
+    if (this.gameOver) return false;
+    if (!Number.isInteger(baseIndex) || baseIndex < 0 || baseIndex > 2) return false;
+    if (!this.bases[baseIndex]) {
+      this.lastCall = '該壘沒有跑者，無法發動盜壘';
+      this.emit();
+      return false;
+    }
+    if (baseIndex < 2 && this.bases[baseIndex + 1]) {
+      this.lastCall = '前方壘包已有跑者，無法盜壘';
+      this.emit();
+      return false;
+    }
+
+    this.bases[baseIndex] = false;
+    if (!success) {
+      this.addOut('盜壘失敗，跑者遭觸殺出局');
+      return false;
+    }
+
+    if (baseIndex === 2) {
+      this.score[this.battingTeam] += 1;
+      this.lastCall = '盜本壘成功，跑者得分！';
+    } else {
+      this.bases[baseIndex + 1] = true;
+      this.lastCall = baseIndex === 0 ? '盜上二壘成功！' : '盜上三壘成功！';
+    }
+
+    if (this.isWalkOff()) {
+      this.gameOver = true;
+      this.lastCall = '再見盜本壘！主隊獲勝';
+    }
+    this.emit();
+    return true;
+  }
+
   walk() {
     if (this.gameOver) return;
     const [first, second, third] = this.bases;
