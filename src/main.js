@@ -1463,13 +1463,21 @@ function animate() {
       }
       }
     } else {
-      if (ball.position.z > 20.1 && !catcherReceiving && !pendingSwing) {
+      if (ball.position.z >= 22.65 && !catcherReceiving && !pendingSwing) {
         catcherReceiving = true;
-        catcher.userData.arms[0].rotation.z = 0.72;
-        catcher.userData.arms[1].rotation.z = -0.72;
+        const gloveOffset = THREE.MathUtils.clamp(ball.position.x * 0.12, -0.28, 0.28);
+        catcher.userData.arms[0].rotation.z = 0.72 - gloveOffset;
+        catcher.userData.arms[1].rotation.z = -0.72 - gloveOffset;
         catchAnimationUntil = now + 0.42;
+        ball.position.set(
+          THREE.MathUtils.clamp(ball.position.x, -0.75, 0.75),
+          THREE.MathUtils.clamp(ball.position.y, 0.9, 2.25),
+          23.05
+        );
+        ball.visible = false;
+        playSound('catch');
       }
-      if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
+      if (catcherReceiving || ball.position.z > 23 || ballAge > 1.8) finishPitch();
     }
   }
   if (fieldingCatchPlayer && now < fieldingCatchUntil) {
