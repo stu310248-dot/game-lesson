@@ -221,7 +221,12 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
     mask.position.set(0, 2.48, 0.28); root.add(mask);
     for (const y of [2.36,2.49,2.62]) box(root, 'catcher-mask-bar', [0.55,0.035,0.045], [0,y,0.3], trimMat, false);
   }
-  root.userData = { role, torso, arms, legs, baseY: position[1] };
+  root.userData = {
+    role, torso, arms, legs, baseY: position[1],
+    homePosition: new THREE.Vector3(...position),
+    fieldingSpeed: role === 'fielder' ? 7.2 : 6.4,
+    reactionDelay: role === 'fielder' ? 0.18 : 0.25
+  };
   return root;
 }
 const pitcher = makePlayer(redMat, [0, 0, 0], 'pitcher');
@@ -247,6 +252,25 @@ let selectedThrowBase = 'first';
 let selectedRunnerBase = 0;
 let runnerAggressive = false;
 let throwWasForceOut = true;
+let fieldingTarget = new THREE.Vector3();
+let fieldingStartedAt = 0;
+
+function chooseFielderForBall() {
+  const projected = ball.position.clone();
+  const horizontalVelocity = new THREE.Vector3(ballVelocity.x, 0, ballVelocity.z);
+  const projectionTime = isGroundBall ? 0.42 : 0.72;
+  projected.addScaledVector(horizontalVelocity, projectionTime);
+  projected.x = THREE.MathUtils.clamp(projected.x, -58, 58);
+  projected.z = THREE.MathUtils.clamp(projected.z, -58, 15);
+  fieldingTarget.copy(projected);
+  return fielders.reduce((best, player) => {
+    const home = player.userData.homePosition;
+    const routeDistance = home.distanceTo(projected);
+    const rolePenalty = isGroundBall && player.position.z < -20 ? 5 : 0;
+    const score = routeDistance + rolePenalty;
+    return !best || score < best.score ? { player, score } : best;
+  }, null)?.player || fielders[0];
+}
 
 function animateRunnersToBases(baseState) {
   const active = runners.filter(r => r.visible);
@@ -799,8 +823,9 @@ function resolveSwingContact() {
     -Math.cos(sprayAngle) * horizontalSpeed
   );
   ballSpinRate = 38 + quality * 18;
-  chasingFielder = fielders.reduce((best, player) =>
-    !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
+  chasingFielder = chooseFielderForBall();
+  fieldingStartedAt = performance.now() / 1000 + chasingFielder.userData.reactionDelay;
+  chasingFielder.userData.fieldingState = 'reacting';
   ballAge = 0;
   setView('field');
   setHint(isGroundBall ? '擊球成功！滾地球！守備員正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！球飛向場內！');
@@ -1193,20 +1218,34 @@ function animate() {
       // A home run resolves the play immediately; do not continue fielding or physics updates.
       if (ballMode === 'hit') {
       if (chasingFielder && ballAge < 2.8) {
-        const target = new THREE.Vector3(
-          THREE.MathUtils.clamp(ball.position.x, -55, 55), 0,
-          THREE.MathUtils.clamp(ball.position.z, -58, 16)
+        const hasReacted = now >= fieldingStartedAt;
+        const target = hasReacted ? fieldingTarget : chasingFielder.position;
+        const distanceToTarget = Math.hypot(
+          target.x - chasingFielder.position.x,
+          target.z - chasingFielder.position.z
         );
-        chasingFielder.position.lerp(target, Math.min(1, dt * 2.4));
-        chasingFielder.rotation.y = Math.atan2(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        const chaseStride = Math.sin(now * 11) * 0.42;
+        if (hasReacted) {
+          chasingFielder.userData.fieldingState = distanceToTarget < 1.4 ? 'set' : 'running';
+          const step = Math.min(distanceToTarget, chasingFielder.userData.fieldingSpeed * dt);
+          if (distanceToTarget > 0.001) {
+            chasingFielder.position.x += (target.x - chasingFielder.position.x) / distanceToTarget * step;
+            chasingFielder.position.z += (target.z - chasingFielder.position.z) / distanceToTarget * step;
+          }
+        }
+        const runSpeed = hasReacted && distanceToTarget > 1.4 ? 12 : 7;
+        chasingFielder.rotation.y = Math.atan2(
+          target.x - chasingFielder.position.x,
+          target.z - chasingFielder.position.z
+        );
+        const chaseStride = hasReacted ? Math.sin(now * runSpeed) * 0.42 : 0;
         chasingFielder.userData.legs[0].rotation.x = chaseStride;
         chasingFielder.userData.legs[1].rotation.x = -chaseStride;
         chasingFielder.userData.arms[0].rotation.x = -chaseStride * 0.78;
         chasingFielder.userData.arms[1].rotation.x = chaseStride * 0.78;
         chasingFielder.userData.torso.rotation.z = -0.045 - Math.abs(chaseStride) * 0.12;
         const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
+        if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && hasReacted &&
+            ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
           catchResolved = true;
           ball.visible = false; ballMode = 'idle';
           ballVelocity.set(0, 0, 0);
@@ -1222,7 +1261,8 @@ function animate() {
           chasingFielder = null;
         }
       }
-      if (isGroundBall && !catchResolved && chasingFielder && ball.position.y <= 0.3 && ballAge > 0.45) {
+      if (isGroundBall && !catchResolved && chasingFielder && now >= fieldingStartedAt &&
+          ball.position.y <= 0.3 && ballAge > 0.45) {
         const distanceToBall = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
         if (distanceToBall < 2.1) {
           catchResolved = true;
