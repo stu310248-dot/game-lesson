@@ -19,5 +19,7 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Test baseball rules
+        run: npm test
       - name: Build production bundle
         run: npm run build
