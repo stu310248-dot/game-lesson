@@ -49,13 +49,13 @@ test('single, double, triple and home run advance runners and score correctly', 
   const single = createGame();
   single.bases = [true, true, true];
   single.hit('single');
-  assert.deepEqual(single.bases, [true, true, false]);
-  assert.equal(single.score[0], 2);
+  assert.deepEqual(single.bases, [true, true, true]);
+  assert.equal(single.score[0], 1);
 
   const double = createGame();
   double.bases = [true, true, true];
   double.hit('double');
-  assert.deepEqual(double.bases, [false, false, true]);
+  assert.deepEqual(double.bases, [false, true, true]);
   assert.equal(double.score[0], 2);
 
   const triple = createGame();
@@ -124,4 +124,19 @@ test('home lead after the top of the ninth ends the game without the bottom half
   game.addOut('出局三');
   assert.equal(game.gameOver, true);
   assert.equal(game.half, '下');
+});
+
+
+test('aggressive baserunning can score an extra runner on a single or double', () => {
+  const single = createGame();
+  single.bases = [false, true, true];
+  single.pitch({ contact: true, result: 'single', aggressive: true });
+  assert.equal(single.score[0], 2);
+  assert.deepEqual(single.bases, [true, false, true]);
+
+  const double = createGame();
+  double.bases = [true, false, true];
+  double.pitch({ contact: true, result: 'double', aggressive: true });
+  assert.equal(double.score[0], 2);
+  assert.deepEqual(double.bases, [false, true, false]);
 });
