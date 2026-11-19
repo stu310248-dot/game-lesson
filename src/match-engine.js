@@ -105,11 +105,11 @@ export class MatchEngine {
     this.emit();
   }
 
-  pitch({ inZone, swung = false, contact = false, result = 'single' } = {}) {
+  pitch({ inZone, swung = false, contact = false, result = 'single', aggressive = false } = {}) {
     if (this.gameOver) return;
 
     if (contact) {
-      this.hit(result);
+      this.hit(result, aggressive);
       return;
     }
 
@@ -167,7 +167,7 @@ export class MatchEngine {
     this.emit();
   }
 
-  hit(kind = 'single') {
+  hit(kind = 'single', aggressive = false) {
     if (this.gameOver) return;
     const [first, second, third] = this.bases;
     let runs = 0;
@@ -182,13 +182,13 @@ export class MatchEngine {
         this.bases = [false, false, true];
         break;
       case 'double':
-        runs = Number(second) + Number(third);
-        this.bases = [false, false, first];
+        runs = Number(second) + Number(third) + Number(aggressive && first);
+        this.bases = [false, true, aggressive ? false : first];
         break;
       case 'single':
       default:
-        runs = Number(second) + Number(third);
-        this.bases = [true, first, false];
+        runs = Number(third) + Number(aggressive && second);
+        this.bases = [true, first, aggressive ? false : second];
         break;
     }
 
