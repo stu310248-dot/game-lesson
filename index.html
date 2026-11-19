@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#071426">
   <meta name="description" content="鑽石棒球場 3D - 可操作的 3D 棒球遊戲開發原型">
-  <title>鑽石棒球場 3D</title>
+  <title>棒球殿堂風格 3D 棒球手遊</title>
 </head>
 <body>
   <main class="app-shell">
@@ -14,18 +14,18 @@
         <span class="brand-mark">◆</span>
         <span><b>DIAMOND</b><small>BASEBALL 3D</small></span>
       </a>
-      <div class="build-tag"><i></i> DEVELOPMENT BUILD <span>PHASE 01</span></div>
+      <div class="build-tag"><i></i> DEVELOPMENT BUILD <span>PHASE 02</span></div>
       <button id="fullscreenBtn" class="icon-button" aria-label="切換全螢幕" title="全螢幕">⛶</button>
     </header>
 
     <section class="scoreboard" aria-label="即時比分">
-      <div class="team-block"><span class="team-symbol red">R</span><div><small>客場 AWAY</small><b>赤隼隊</b></div></div>
+      <div class="team-block"><span class="team-symbol red">R</span><div><small>客場 AWAY</small><b id="awayTeamName">赤隼隊</b></div></div>
       <div class="score-center">
         <div class="inning"><span id="inningLabel">▲ 1 局上</span><span class="live-dot">LIVE</span></div>
         <div class="score"><strong id="awayScore">0</strong><span>:</span><strong id="homeScore">0</strong></div>
         <div class="count"><span>B <b id="balls">0</b></span><span>S <b id="strikes">0</b></span><span>O <b id="outs">0</b></span></div>
       </div>
-      <div class="team-block away"><div><small>主場 HOME</small><b>藍焰隊</b></div><span class="team-symbol">B</span></div>
+      <div class="team-block away"><div><small>主場 HOME</small><b id="homeTeamName">藍焰隊</b></div><span class="team-symbol">B</span></div>
     </section>
 
     <section class="viewport-wrap">
@@ -38,6 +38,25 @@
     </section>
 
     <section class="control-deck">
+      <div class="league-tools" aria-label="模式與球隊設定">
+        <label>比賽模式<select id="gameMode">
+          <option value="quick">快速比賽・九局</option>
+          <option value="league">職業聯賽・九局</option>
+          <option value="playoff">季後賽・晉級制</option>
+          <option value="series">三戰兩勝系列賽</option>
+          <option value="development">球員培養賽</option>
+        </select></label>
+        <label>客場<select id="awayTeamSelect"></select></label>
+        <label>主場<select id="homeTeamSelect"></select></label>
+        <button id="applyMatchSetup" class="secondary-btn" type="button">套用賽事設定</button>
+        <button id="autoGameBtn" class="secondary-btn" type="button">自動比賽</button>
+      </div>
+      <div class="player-card-strip" aria-label="目前球員能力">
+        <div><small>PLAYER CARD</small><b id="activePlayerName">陳曜廷</b><span id="activePlayerRole">先發投手・LV 12</span></div>
+        <span>球速 <strong id="playerSpeed">156</strong></span>
+        <span>控球 <strong id="playerControl">82</strong></span>
+        <span>體力 <strong id="playerCondition">100</strong></span>
+      </div>
       <div class="deck-heading"><div><small>CAMERA CONTROL</small><b>球場視角</b></div><span>選擇鏡頭</span></div>
       <div class="camera-buttons">
         <button class="camera-btn" data-view="broadcast"><span>▦</span>全場</button>
@@ -59,7 +78,7 @@
           <span>跑壘</span><button id="runnerNormalBtn" class="mini-control active" type="button">穩健</button><button id="runnerAggressiveBtn" class="mini-control" type="button">積極推進</button>
           <span>傳球目標</span><button class="mini-control throw-target active" data-base="first" type="button">一壘</button><button class="mini-control throw-target" data-base="second" type="button">二壘</button><button class="mini-control throw-target" data-base="third" type="button">三壘</button><button class="mini-control throw-target" data-base="home" type="button">本壘</button>
         </div><div class="runner-controls" aria-label="個別跑者操作"><span class="runner-controls-title">個別跑者</span><button class="mini-control runner-select active" data-runner-base="0" type="button">一壘跑者</button><button class="mini-control runner-select" data-runner-base="1" type="button">二壘跑者</button><button class="mini-control runner-select" data-runner-base="2" type="button">三壘跑者</button><button id="stealBtn" class="mini-control steal-button" type="button" disabled>盜壘前進</button><span id="runnerStatus" class="runner-status">選擇有跑者的壘包後可嘗試盜壘</span></div><div class="stamina-control"><span>投手體力</span><div class="stamina-track"><i id="staminaFill"></i></div><b id="staminaValue">100%</b></div><button id="restartBtn" class="secondary-btn">重新開始</button></div>
-      <div class="bottom-note"><span>操作：左鍵揮棒　<kbd>1</kbd> 穩健跑壘　<kbd>2</kbd> 積極推進　選擇傳球壘包；盜壘請選擇跑者後按盜壘</span><span>第一階段開發測試版</span></div>
+      <div class="bottom-note"><span>操作：左鍵揮棒　<kbd>1</kbd> 穩健跑壘　<kbd>2</kbd> 積極推進　選擇傳球壘包；盜壘請選擇跑者後按盜壘</span><span>第二階段開發測試版</span></div>
     </section>
   </main>
   <script type="module" src="/src/main.js"></script>

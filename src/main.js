@@ -366,12 +366,65 @@ const staminaValue = document.querySelector('#staminaValue');
 const pitcherName = document.querySelector('#pitcherName');
 const pitcherSelect = document.querySelector('#pitcherSelect');
 const changePitcherBtn = document.querySelector('#changePitcherBtn');
+const teamRoster = [
+  { name: '統一獅', short: 'U', color: 0xf2a900 },
+  { name: '富邦悍將', short: 'F', color: 0x1767a5 },
+  { name: '樂天桃猿', short: 'R', color: 0xc8326b },
+  { name: '中信兄弟', short: 'B', color: 0xf5c242 },
+  { name: '味全龍', short: 'W', color: 0xd44b3d },
+  { name: '台鋼雄鷹', short: 'T', color: 0x2d8e86 }
+];
+const awayTeamSelect = document.querySelector('#awayTeamSelect');
+const homeTeamSelect = document.querySelector('#homeTeamSelect');
+const gameModeSelect = document.querySelector('#gameMode');
+let selectedTeams = { away: 0, home: 1 };
+let selectedGameMode = 'quick';
+let autoGameEnabled = false;
+let autoGameTimer = 0;
+const developmentPlayers = [
+  { name: '陳曜廷', role: '先發投手', speed: 156, control: 82 },
+  { name: '林奕辰', role: '先發投手', speed: 151, control: 86 },
+  { name: '周柏翰', role: '先發投手', speed: 148, control: 79 },
+  { name: '許承恩', role: '中繼投手', speed: 153, control: 81 },
+  { name: '江子皓', role: '終結者', speed: 158, control: 77 }
+];
+function populateTeamSelects() {
+  [awayTeamSelect, homeTeamSelect].forEach(select => {
+    if (!select) return;
+    select.innerHTML = teamRoster.map((team, index) =>
+      `<option value="${index}">${team.name}</option>`).join('');
+  });
+  if (awayTeamSelect) awayTeamSelect.value = selectedTeams.away;
+  if (homeTeamSelect) homeTeamSelect.value = selectedTeams.home;
+}
+function updateTeamUI() {
+  const away = teamRoster[selectedTeams.away];
+  const home = teamRoster[selectedTeams.home];
+  document.querySelector('#awayTeamName').textContent = away.name;
+  document.querySelector('#homeTeamName').textContent = home.name;
+  document.querySelector('.team-symbol.red').textContent = away.short;
+  document.querySelector('.team-symbol.red').style.background = `#${away.color.toString(16).padStart(6, '0')}`;
+  document.querySelector('.team-block.away .team-symbol').textContent = home.short;
+  document.querySelector('.team-block.away .team-symbol').style.background = `#${home.color.toString(16).padStart(6, '0')}`;
+}
+function updatePlayerCard() {
+  const player = developmentPlayers[activePitcherIndex];
+  document.querySelector('#activePlayerName').textContent = player.name;
+  document.querySelector('#activePlayerRole').textContent =
+    `${player.role}・LV ${12 + activePitcherIndex}`;
+  document.querySelector('#playerSpeed').textContent = player.speed;
+  document.querySelector('#playerControl').textContent = player.control;
+  document.querySelector('#playerCondition').textContent = Math.round(pitcherStamina);
+}
+populateTeamSelects();
+updateTeamUI();
 function updateStaminaUI() {
   pitcherRoster[activePitcherIndex].stamina = pitcherStamina;
   if (staminaFill) staminaFill.style.width = `${pitcherStamina}%`;
   if (staminaValue) staminaValue.textContent = `${Math.round(pitcherStamina)}%`;
   if (staminaFill) staminaFill.classList.toggle('low', pitcherStamina < 30);
   if (pitcherName) pitcherName.textContent = pitcherRoster[activePitcherIndex].name;
+  updatePlayerCard();
 }
 function changePitcher() {
   if (ballMode !== 'idle' || match.gameOver) {
@@ -671,7 +724,51 @@ document.querySelector('#pitchBtn').addEventListener('click', () => {
 });
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; selectedRunnerBase = 0; updateRunnerControls(match.snapshot()); chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+function restartMatch() {
+  match.reset();
+  pitcherRoster.forEach(p => { p.stamina = 100; });
+  activePitcherIndex = 0;
+  pitcherStamina = 100;
+  if (pitcherSelect) pitcherSelect.value = '0';
+  updateStaminaUI();
+  document.querySelector('#pitchBtn').disabled = false;
+  ball.visible = false;
+  ballMode = 'idle';
+  aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999;
+  selectedRunnerBase = 0;
+  updateRunnerControls(match.snapshot());
+  chasingFielder = null;
+  throwFielder = null;
+  catchResolved = false;
+  pendingSwing = false;
+  pendingHitKind = 'single';
+  actionTitle.textContent = `${teamRoster[selectedTeams.away].name} vs ${teamRoster[selectedTeams.home].name}`;
+  actionDescription.textContent = `${selectedGameMode === 'quick' ? '快速比賽' : gameModeSelect?.selectedOptions[0]?.textContent || '比賽'} 已開始。`;
+}
+document.querySelector('#restartBtn')?.addEventListener('click', restartMatch);
+document.querySelector('#applyMatchSetup')?.addEventListener('click', () => {
+  const away = Number(awayTeamSelect?.value);
+  const home = Number(homeTeamSelect?.value);
+  if (!Number.isInteger(away) || !Number.isInteger(home) || away === home) {
+    setHint('客場與主場必須選擇不同球隊。');
+    return;
+  }
+  selectedTeams = { away, home };
+  selectedGameMode = gameModeSelect?.value || 'quick';
+  updateTeamUI();
+  restartMatch();
+  setHint(`${teamRoster[away].name} 對 ${teamRoster[home].name}，${gameModeSelect?.selectedOptions[0]?.textContent || '快速比賽'}開始！`);
+});
+document.querySelector('#autoGameBtn')?.addEventListener('click', event => {
+  autoGameEnabled = !autoGameEnabled;
+  event.currentTarget.classList.toggle('active', autoGameEnabled);
+  event.currentTarget.textContent = autoGameEnabled ? '停止自動比賽' : '自動比賽';
+  aiOpponentEnabled = true;
+  aiToggle?.classList.add('active');
+  if (aiToggle) aiToggle.textContent = 'AI 對手：開';
+  aiPitchCooldown = 0.4;
+  setHint(autoGameEnabled ? '自動比賽已啟用：雙方 AI 將完成九局規則流程。' : '自動比賽已停止，恢復手動操作。');
+});
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#runnerNormalBtn')?.addEventListener('click', () => {
   runnerAggressive = false;
@@ -770,10 +867,17 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.04);
   const now = performance.now() / 1000;
 
-  // AI automatically pitches in the top half; the player pitches in the bottom half.
-  if (aiOpponentEnabled && match.half === '上' && ballMode === 'idle' && !match.gameOver) {
+  // AI automatically pitches in the top half; auto mode also lets AI pitch the bottom half.
+  if (aiOpponentEnabled && ballMode === 'idle' && !match.gameOver &&
+      (match.half === '上' || autoGameEnabled && match.half === '下')) {
     aiPitchCooldown -= dt;
     if (aiPitchCooldown <= 0) nextPitch();
+  }
+  if (autoGameEnabled && match.gameOver) {
+    autoGameEnabled = false;
+    const autoButton = document.querySelector('#autoGameBtn');
+    autoButton?.classList.remove('active');
+    if (autoButton) autoButton.textContent = '自動比賽';
   }
 
   runners.forEach(runner => {
@@ -881,7 +985,10 @@ function animate() {
       ballVelocity.multiplyScalar(Math.exp(-0.018 * dt));
     }
     // AI batter decision in the bottom half: swing at most pitches in-zone and sometimes chase.
-    if (ballMode === 'pitch' && match.half === '下' && aiOpponentEnabled && !pendingSwing && !pitchResolved && ball.position.z >= 13.4 && aiDecisionPitchNumber !== pitchNumber) {
+    if (ballMode === 'pitch' && aiOpponentEnabled &&
+        (match.half === '下' || autoGameEnabled && match.half === '上') &&
+        !pendingSwing && !pitchResolved && ball.position.z >= 13.4 &&
+        aiDecisionPitchNumber !== pitchNumber) {
       aiDecisionPitchNumber = pitchNumber;
       const shouldSwing = pitchTargetInZone ? Math.random() < 0.82 : Math.random() < 0.28;
       if (shouldSwing) {

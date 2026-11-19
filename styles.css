@@ -44,6 +44,17 @@ button{font:inherit;cursor:pointer}
 .loader{width:30px;height:30px;border:3px solid #31506d;border-top-color:#67c7ff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:7px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .control-deck{margin-top:14px;padding:20px 22px 13px;background:#0c1d30;border:1px solid #263f59;border-radius:15px;box-shadow:0 12px 30px #0003}
+.league-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 0 14px;border-bottom:1px solid #21384f}
+.league-tools label{display:flex;align-items:center;gap:7px;color:#9eb6cc;font-size:10px;font-weight:700}
+.league-tools select{background:#142f49;color:#e8f4ff;border:1px solid #3c6284;border-radius:8px;padding:8px 10px;font:inherit}
+.league-tools button{height:36px;padding:0 13px}
+.league-tools .active{border-color:#3baf83;background:#123d37;color:#b8ffe2}
+.player-card-strip{display:flex;align-items:center;gap:18px;padding:12px 0;color:#9eb6cc;font-size:10px}
+.player-card-strip>div{display:flex;flex-direction:column;min-width:170px}
+.player-card-strip small{font:600 9px "Barlow Condensed",sans-serif;letter-spacing:1.6px;color:#6f94b5}
+.player-card-strip b{font-size:14px;color:#f4f8ff;margin:3px 0}
+.player-card-strip span{padding:7px 10px;border:1px solid #294761;border-radius:7px;background:#10263d}
+.player-card-strip strong{color:#fff;margin-left:4px;font:800 15px "Barlow Condensed",sans-serif}
 .deck-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .deck-heading small,.action-copy small{display:block;font:600 9px "Barlow Condensed",sans-serif;letter-spacing:1.8px;color:#6f94b5}
 .deck-heading b{font-size:15px;display:block;margin-top:3px}
@@ -65,7 +76,7 @@ button{font:inherit;cursor:pointer}
 kbd{font:600 10px "Barlow Condensed",sans-serif;padding:2px 5px;border:1px solid #3a536b;border-radius:4px;background:#142a40;color:#d3e4f4}
 @media(max-width:650px){.app-shell{width:calc(100% - 20px);padding-top:10px}.build-tag{font-size:8px;letter-spacing:.8px}.build-tag span{display:none}.scoreboard{height:96px;padding:10px 12px}.team-symbol{width:32px;height:32px;border-radius:9px;font-size:20px}.team-block{gap:7px}.team-block small{font-size:8px}.team-block b{font-size:12px}.score{font-size:32px;gap:11px}.viewport-wrap{height:58vh;min-height:340px}.control-deck{padding:15px 12px 11px}.camera-buttons{gap:5px}.camera-btn{font-size:10px;height:40px}.camera-btn span{display:block;margin:0 0 1px;font-size:14px}.action-row{align-items:flex-end;gap:8px}.action-copy span{max-width:185px;line-height:1.5}.action-buttons{gap:5px}.secondary-btn,.primary-btn{padding:0 11px;height:40px;font-size:11px}.bottom-note{font-size:8px}.bottom-note span:last-child{display:none}.field-hint{font-size:9px;right:9px;top:57px}.view-chip{left:9px;top:9px}}
 
-.advanced-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 2px;border-bottom:1px solid #21384f;color:#9eb6cc;font-size:11px}.advanced-controls label{display:flex;align-items:center;gap:9px}.advanced-controls select{background:#142f49;color:#e8f4ff;border:1px solid #3c6284;border-radius:8px;padding:8px 12px;font:inherit}.advanced-controls button{height:34px;padding:0 12px}.advanced-controls #baseStatus{font-weight:700;letter-spacing:1px;color:#f0d18a}@media(max-width:650px){.advanced-controls{flex-wrap:wrap;justify-content:space-between}.advanced-controls label{width:100%;justify-content:space-between}.advanced-controls select{flex:1;max-width:70%}}
+.advanced-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 2px;border-bottom:1px solid #21384f;color:#9eb6cc;font-size:11px}.advanced-controls label{display:flex;align-items:center;gap:9px}.advanced-controls select{background:#142f49;color:#e8f4ff;border:1px solid #3c6284;border-radius:8px;padding:8px 12px;font:inherit}.advanced-controls button{height:34px;padding:0 12px}.advanced-controls #baseStatus{font-weight:700;letter-spacing:1px;color:#f0d18a}@media(max-width:650px){.league-tools label{width:100%;justify-content:space-between}.league-tools select{flex:1;max-width:72%}.league-tools button{flex:1}.player-card-strip{gap:6px;flex-wrap:wrap}.player-card-strip>div{width:100%}.player-card-strip span{flex:1;text-align:center}.advanced-controls{flex-wrap:wrap;justify-content:space-between}.advanced-controls label{width:100%;justify-content:space-between}.advanced-controls select{flex:1;max-width:70%}}
 
 .stamina-control{display:flex;align-items:center;gap:8px;min-width:150px;color:#9eb6cc;font-size:10px}.stamina-track{width:76px;height:7px;background:#263e54;border-radius:9px;overflow:hidden}.stamina-track i{display:block;width:100%;height:100%;background:#42d69a;border-radius:9px;transition:width .25s,background .25s}.stamina-track i.low{background:#ef9b54}.stamina-control b{color:#e8f4ff;font:700 11px 'Barlow Condensed',sans-serif}@media(max-width:650px){.stamina-control{min-width:135px;order:3}.stamina-track{flex:1}}
 
