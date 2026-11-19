@@ -790,12 +790,12 @@ function nextPitch() {
   pitcherThrowStartedAt = performance.now() / 1000;
   const profiles = {
     fastball: { speed: 39, curve: 0.0, label: '四縫線快速球' },
-    sinker: { speed: 34, curve: 3.0, label: '伸卡球' },
-    slider: { speed: 32, curve: 5.2, label: '滑球' },
-    curve: { speed: 27, curve: 6.5, label: '曲球' },
-    changeup: { speed: 28, curve: 1.8, label: '變速球' },
-    splitter: { speed: 31, curve: 2.7, label: '指叉球' },
-    twoseam: { speed: 36, curve: 2.1, label: '二縫線快速球' }
+    sinker: { speed: 34, curve: 1.4, label: '伸卡球' },
+    slider: { speed: 32, curve: 2.8, label: '滑球' },
+    curve: { speed: 27, curve: 3.8, label: '曲球' },
+    changeup: { speed: 28, curve: 0.9, label: '變速球' },
+    splitter: { speed: 31, curve: 1.5, label: '指叉球' },
+    twoseam: { speed: 36, curve: 1.2, label: '二縫線快速球' }
   };
   const profile = profiles[activePitchType] || profiles.fastball;
   const spinProfiles = { fastball: 24, twoseam: 20, sinker: 17, slider: 29, curve: 34, changeup: 13, splitter: 22 };
@@ -820,13 +820,13 @@ function nextPitch() {
   const duration = 34 / effectiveSpeed;
   ballVelocity.copy(destination.sub(ball.position)).multiplyScalar(1 / duration);
   const predictedTime = Math.max(0, (zz - ball.position.z) / Math.max(0.001, ballVelocity.z));
-  const predictedBreak = activePitchCurve * 1.15;
+  const predictedBreak = activePitchCurve * 0.72;
   const predictedDrop = activePitchType === 'curve'
-    ? 5.5
+    ? 4.0
     : activePitchType === 'splitter'
-      ? 3.8
+      ? 2.6
       : activePitchType === 'sinker'
-        ? 2.2
+        ? 1.6
         : 0.8;
   const predictedX = ball.position.x + ballVelocity.x * predictedTime +
     0.5 * predictedBreak * predictedTime * predictedTime;
@@ -1224,9 +1224,9 @@ function animate() {
     ball.rotation.z += dt * ballSpinRate * 0.16;
     if (ballMode === 'pitch') {
       // Apply lateral break as acceleration rather than a frame-dependent position offset.
-      const breakAcceleration = activePitchCurve * 1.15;
+      const breakAcceleration = activePitchCurve * 0.72;
       ballVelocity.x += breakAcceleration * dt;
-      const dropAcceleration = activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : activePitchType === 'sinker' ? 2.2 : 0.8;
+      const dropAcceleration = activePitchType === 'curve' ? 4.0 : activePitchType === 'splitter' ? 2.6 : activePitchType === 'sinker' ? 1.6 : 0.8;
       ballVelocity.y -= dropAcceleration * dt;
       ballVelocity.multiplyScalar(Math.exp(-0.018 * dt));
     }
