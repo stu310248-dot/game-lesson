@@ -809,6 +809,12 @@ function animate() {
 
   if (ballMode === 'throw') {
     const progress = Math.min(1, (now - throwStartedAt) / 0.48);
+    // Animate the fielder's wind-up, release and follow-through with the ball flight.
+    const release = THREE.MathUtils.clamp(progress / 0.42, 0, 1);
+    const follow = THREE.MathUtils.clamp((progress - 0.42) / 0.58, 0, 1);
+    throwFielder.userData.arms[0].rotation.z = THREE.MathUtils.lerp(0.95, -0.78, release);
+    throwFielder.userData.arms[1].rotation.z = THREE.MathUtils.lerp(-0.2, 0.38, release) * (1 - follow * 0.65);
+    throwFielder.userData.torso.rotation.z = -0.12 * (1 - follow) + 0.04 * follow;
     const start = new THREE.Vector3(throwFielder.position.x, 1.65, throwFielder.position.z);
     const throwTargets = {
       first: new THREE.Vector3(15.5, 1.25, 6.5),
@@ -821,7 +827,8 @@ function animate() {
     ball.rotation.x += dt * 14;
     if (progress >= 1) {
       ball.visible = false; ballMode = 'idle';
-      throwFielder.userData.arms[0].rotation.z = -0.32;
+      throwFielder.userData.arms.forEach(arm => { arm.rotation.z = -0.32; });
+      throwFielder.userData.torso.rotation.z = 0;
       throwFielder = null;
       const bases = match.snapshot().bases;
       const forceAvailable = selectedThrowBase === 'first' ||
