@@ -778,10 +778,18 @@ function animate() {
       runner.position.lerpVectors(runner.userData.runFrom, runner.userData.runTo, eased);
       runner.position.y = Math.sin(t * Math.PI) * 0.16;
       const stride = Math.sin(now * 13) * (1 - t) * 0.55;
+      // Coordinate the runner's arms and torso with the leg cycle for a more natural sprint.
       runner.userData.legs[0].rotation.x = stride;
       runner.userData.legs[1].rotation.x = -stride;
+      runner.userData.arms[0].rotation.x = -stride * 0.72;
+      runner.userData.arms[1].rotation.x = stride * 0.72;
+      runner.userData.torso.rotation.z = -0.06 - Math.abs(stride) * 0.16;
       runner.rotation.y = Math.atan2(runner.userData.runTo.x - runner.position.x, runner.userData.runTo.z - runner.position.z);
-      if (t >= 1) runner.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+      if (t >= 1) {
+        runner.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+        runner.userData.arms.forEach(arm => { arm.rotation.x = 0; });
+        runner.userData.torso.rotation.z = 0;
+      }
     }
   });
 
