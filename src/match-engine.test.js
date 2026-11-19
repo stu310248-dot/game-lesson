@@ -167,3 +167,23 @@ test('steal is rejected when the selected base is empty or next base is occupied
   assert.equal(game.steal(0, true), false);
   assert.deepEqual(game.bases, [true, true, false]);
 });
+
+
+test('ground-ball double play requires a runner on first and fewer than two outs', () => {
+  const game = createGame();
+  game.bases = [true, false, false];
+  assert.equal(game.groundBallOut({ target: 'second', doublePlay: true }), true);
+  assert.equal(game.outs, 2);
+  assert.deepEqual(game.bases, [false, false, false]);
+
+  const twoOuts = createGame();
+  twoOuts.bases = [true, false, false];
+  twoOuts.outs = 2;
+  assert.equal(twoOuts.groundBallOut({ target: 'second', doublePlay: true }), true);
+  assert.equal(twoOuts.outs, 0);
+  assert.equal(twoOuts.half, '下');
+
+  const noRunner = createGame();
+  assert.equal(noRunner.groundBallOut({ target: 'second', doublePlay: true }), false);
+  assert.equal(noRunner.outs, 0);
+});
