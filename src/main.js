@@ -323,6 +323,7 @@ let swingImpactAt = 0;
 let aiOpponentEnabled = true;
 let aiPitchCooldown = 1.4;
 let aiDecisionPitchNumber = -1;
+let displayedHalf = '上';
 const aimCursor = document.querySelector('#aimCursor');
 const aiToggle = document.querySelector('#aiToggle');
 const clock = new THREE.Clock();
@@ -353,12 +354,14 @@ function syncMatchUI(state) {
   if (baseNode) baseNode.textContent = baseText;
   animateRunnersToBases(state.bases);
   updateControlRole(state);
-  if (!state.gameOver && state.half === '下') {
-    setView('pitcher');
-    if (state.lastCall) setHint(state.lastCall + '。現在由你投球，AI 負責打擊。');
-  } else if (!state.gameOver && state.half === '上') {
-    setView('batter');
-    if (state.lastCall) setHint(state.lastCall + '。現在由你打擊，AI 負責投球。');
+  if (state.half !== displayedHalf) {
+    displayedHalf = state.half;
+    if (!state.gameOver) {
+      setView(state.half === '下' ? 'pitcher' : 'batter');
+      setHint(state.half === '下'
+        ? '攻守交換！現在由你投球，AI 負責打擊。'
+        : '攻守交換！現在由你打擊，AI 負責投球。');
+    }
   } else if (state.lastCall) setHint(state.lastCall);
   if (state.gameOver) {
     actionTitle.textContent = '比賽結束';
