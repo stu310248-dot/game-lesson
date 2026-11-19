@@ -742,7 +742,7 @@ function animate() {
             { key: 'third', available: currentBases[1] },
             { key: 'home', available: currentBases[2] }
           ];
-          if (match.half === '下' && aiOpponentEnabled) {
+          if (match.half === '上' && aiOpponentEnabled) {
             const options = forceTargets.filter(target => target.available);
             selectedThrowBase = options.length ? options[Math.floor(Math.random() * options.length)].key : 'first';
           }
