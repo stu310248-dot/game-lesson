@@ -154,31 +154,73 @@ for (const x of [-27, 27]) {
 box(scene, 'scoreboard-frame', [28, 10, 1.2], [0, 17, -79], mat(0x152c40));
 box(scene, 'scoreboard-screen', [25, 7, 0.25], [0, 17, -78.3], mat(0x071522));
 
-// Simple procedural player models.
+// Detailed procedural player models: layered uniform, helmet, gloves, cleats and catcher protection.
 function makePlayer(teamMaterial, position, role = 'fielder') {
   const root = new THREE.Group();
   root.position.set(...position);
   scene.add(root);
-
-  const torso = cylinder(root, 0.48, 0.58, 1.25, [0, 1.55, 0], teamMaterial, 12);
-  cylinder(root, 0.32, 0.34, 0.28, [0, 2.32, 0], skinMat, 16);
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.37, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), teamMaterial);
-  helmet.position.set(0, 2.58, 0);
-  root.add(helmet);
-
+  const pantsMat = mat(0xe8edf2);
+  const trimMat = mat(0xf4f7fb, 0.55);
+  const shoeMat = mat(0x17212d, 0.62);
+  const darkTeamMat = mat(role === 'batter' ? 0x103d68 : 0x641f2b);
+  const torso = new THREE.Group();
+  torso.position.set(0, 1.55, 0);
+  root.add(torso);
+  const jersey = new THREE.Mesh(new THREE.CapsuleGeometry(0.43, 0.58, 5, 12), teamMaterial);
+  jersey.scale.set(1, 1, 0.78); jersey.castShadow = true; torso.add(jersey);
+  const chestStripe = box(torso, 'jersey-trim', [0.72, 0.055, 0.035], [0, 0.12, 0.34], trimMat, false);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.035, 8, 24), trimMat);
+  collar.position.set(0, 0.43, 0); collar.rotation.x = Math.PI / 2; torso.add(collar);
+  const neck = cylinder(root, 0.16, 0.18, 0.28, [0, 2.16, 0], skinMat, 16);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 20, 16), skinMat);
+  head.position.set(0, 2.48, 0.025); head.castShadow = true; root.add(head);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.57), teamMaterial);
+  helmet.position.set(0, 2.57, 0.015); helmet.castShadow = true; root.add(helmet);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.055, 24, 1, false, 0, Math.PI), teamMaterial);
+  brim.rotation.x = Math.PI / 2; brim.position.set(0, 2.51, 0.25); root.add(brim);
+  const earGuard = box(root, 'helmet-ear-guard', [0.13, 0.32, 0.22], [0.29, 2.36, 0.13], teamMaterial);
+  earGuard.rotation.z = -0.12;
   const arms = [];
   const legs = [];
   for (const side of [-1, 1]) {
-    const leg = box(root, 'leg', [0.28, 0.88, 0.34], [side * 0.24, 0.47, 0], mat(0xe4e8eb));
-    leg.rotation.z = side * -0.08;
-    legs.push(leg);
-    const arm = cylinder(root, 0.16, 0.19, 0.92, [side * 0.62, 1.65, 0], teamMaterial, 10);
-    arm.rotation.z = side * -0.32;
-    arms.push(arm);
+    const legGroup = new THREE.Group();
+    legGroup.position.set(side * 0.22, 0.88, 0);
+    root.add(legGroup);
+    const pants = cylinder(legGroup, 0.18, 0.145, 0.82, [0, -0.36, 0], pantsMat, 12);
+    pants.rotation.z = side * -0.035;
+    const sock = cylinder(legGroup, 0.145, 0.14, 0.22, [0, -0.72, 0], teamMaterial, 12);
+    const cleat = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.48), shoeMat);
+    cleat.position.set(0, -0.81, 0.11); cleat.castShadow = true; legGroup.add(cleat);
+    box(legGroup, 'cleat-sole', [0.35, 0.045, 0.49], [0, -0.89, 0.11], trimMat, false);
+    legs.push(legGroup);
+    const armPivot = new THREE.Group();
+    armPivot.position.set(side * 0.43, 1.83, 0);
+    torso.add(armPivot);
+    const sleeve = cylinder(armPivot, 0.17, 0.145, 0.38, [0, -0.12, 0], teamMaterial, 12);
+    const forearm = cylinder(armPivot, 0.125, 0.105, 0.48, [0, -0.49, 0.035], skinMat, 12);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), skinMat);
+    hand.position.set(0, -0.75, 0.05); armPivot.add(hand);
+    arms.push(armPivot);
   }
-  const glove = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), gloveMat);
-  glove.position.set(0.83, 1.25, -0.05);
-  root.add(glove);
+  const glove = new THREE.Group();
+  glove.position.set(0.67, 1.05, 0.12); root.add(glove);
+  const glovePalm = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), gloveMat);
+  glovePalm.scale.set(1.05, 1.2, 0.62); glove.add(glovePalm);
+  for (let i = -1; i <= 1; i++) {
+    const finger = cylinder(glove, 0.045, 0.035, 0.2, [i * 0.09, 0.22, 0.02], gloveMat, 8);
+    finger.rotation.z = i * -0.2;
+  }
+  if (role === 'catcher') {
+    const protector = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.86, 0.18), mat(0x172b42));
+    protector.position.set(0, 1.57, 0.36); protector.castShadow = true; root.add(protector);
+    for (const side of [-1, 1]) {
+      const shin = box(root, 'catcher-shin-guard', [0.24, 0.58, 0.2], [side * 0.22, 0.42, 0.18], mat(0x263d57));
+      shin.rotation.z = side * -0.08;
+    }
+    const mask = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.045, 8, 20), trimMat);
+    mask.position.set(0, 2.48, 0.28); root.add(mask);
+    for (const y of [2.36,2.49,2.62]) box(root, 'catcher-mask-bar', [0.55,0.035,0.045], [0,y,0.3], trimMat, false);
+  }
   root.userData = { role, torso, arms, legs, baseY: position[1] };
   return root;
 }
@@ -242,8 +284,12 @@ batter.rotation.y = -0.2; catcher.rotation.y = Math.PI;
 const batPivot = new THREE.Group();
 batPivot.position.set(0.48, 1.72, -0.2);
 batter.add(batPivot);
-const bat = cylinder(batPivot, 0.075, 0.12, 2.2, [0, 1.0, 0], mat(0xd2a36b), 12);
+const bat = cylinder(batPivot, 0.07, 0.105, 2.2, [0, 1.0, 0], mat(0xc99559), 16);
 bat.rotation.z = -0.18;
+const batGrip = cylinder(batPivot, 0.072, 0.072, 0.55, [0, 0.22, 0], mat(0x252b33), 12);
+batGrip.rotation.z = -0.18;
+const batKnob = new THREE.Mesh(new THREE.SphereGeometry(0.095,12,8),mat(0x252b33));
+batKnob.position.set(0, -0.08, 0); batPivot.add(batKnob);
 batPivot.rotation.z = -0.72;
 // Baseball and seam approximation.
 const ball = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16), ballMat);
@@ -254,11 +300,31 @@ seam.rotation.set(0.6,0.4,0.2); ball.add(seam);
 
 const cameraViews = {
   broadcast: { position: [54, 48, 65], target: [0, 0, -5], label: '全場視角' },
-  batter: { position: [-5.0, 3.45, 30.2], target: [-0.2, 1.65, 0.8], label: '打者視角' },
+  batter: { position: [-3.65, 3.05, 29.2], target: [-0.15, 1.62, -0.2], label: '打者視角' },
   pitcher: { position: [0, 4.5, -12], target: [0, 1.5, 22], label: '投球視角' },
   field: { position: [34, 25, -35], target: [0, 0, 4], label: '守備視角' },
   runner: { position: [22, 12, 29], target: [0, 0, 7], label: '跑壘視角' }
 };
+// Batter-facing strike zone: official-style rectangular frame with nine target cells.
+const strikeZone = new THREE.Group();
+const zoneLineMat = new THREE.MeshBasicMaterial({ color: 0x63dcff, transparent: true, opacity: 0.96 });
+const zoneGridMat = new THREE.MeshBasicMaterial({ color: 0x9cecff, transparent: true, opacity: 0.52 });
+const zonePanel = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.35), new THREE.MeshBasicMaterial({ color: 0x3cbbe8, transparent: true, opacity: 0.075, side: THREE.DoubleSide, depthWrite: false }));
+zonePanel.position.set(0, 1.575, 19.62); strikeZone.add(zonePanel);
+function zoneBar(w,h,x,y,z,material=zoneLineMat) {
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(w,h,0.035), material);
+  bar.position.set(x,y,z); strikeZone.add(bar);
+}
+const zx=0.92, zy0=0.9, zy1=2.25, zz=19.58, thick=0.045;
+zoneBar(thick,zy1-zy0,-zx,(zy0+zy1)/2,zz);
+zoneBar(thick,zy1-zy0,zx,(zy0+zy1)/2,zz);
+zoneBar(zx*2,thick,0,zy0,zz);
+zoneBar(zx*2,thick,0,zy1,zz);
+for(const x of [-zx/3,zx/3]) zoneBar(0.025,zy1-zy0,x,(zy0+zy1)/2,zz+0.015,zoneGridMat);
+for(const y of [zy0+(zy1-zy0)/3,zy0+2*(zy1-zy0)/3]) zoneBar(zx*2,0.025,0,y,zz+0.015,zoneGridMat);
+scene.add(strikeZone);
+strikeZone.visible = true;
+
 let currentView = 'batter';
 let cameraFrom = new THREE.Vector3(...cameraViews.batter.position);
 let cameraTargetFrom = new THREE.Vector3(...cameraViews.batter.target);
@@ -403,6 +469,7 @@ function setView(name) {
   cameraTargetFrom.copy(controlsTarget);
   cameraTween = 0;
   viewName.textContent = cameraViews[name].label;
+  strikeZone.visible = name === 'batter';
   document.querySelectorAll('.camera-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.view === name));
 }
 const controlsTarget = new THREE.Vector3(0,0,-5);
@@ -754,6 +821,14 @@ function animate() {
       resolveSwingContact();
     }
     if (ballMode === 'hit') {
+      strikeZone.visible = false;
+      if (currentView === 'field') {
+        const followTarget = ball.position.clone();
+        const followPosition = followTarget.clone().add(new THREE.Vector3(23, 16, 27));
+        camera.position.lerp(followPosition, Math.min(1, dt * 1.6));
+        controlsTarget.lerp(followTarget, Math.min(1, dt * 2.4));
+        camera.lookAt(controlsTarget);
+      }
       if (chasingFielder && ballAge < 2.8) {
         const target = new THREE.Vector3(
           THREE.MathUtils.clamp(ball.position.x, -55, 55), 0,
@@ -824,6 +899,7 @@ function animate() {
           chasingFielder = null;
         }
         ball.visible = false; ballMode = 'idle';
+        strikeZone.visible = currentView === 'batter';
         if (!catchResolved) {
           const aiAggressive = match.half === '下' ? Math.random() < (pendingHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
           match.pitch({ contact: true, result: pendingHitKind, aggressive: aiAggressive });
