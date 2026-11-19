@@ -396,7 +396,8 @@ const fireworkParticles = [];
 let fieldingCatchPlayer = null;
 let fieldingCatchStartedAt = 0;
 let fieldingCatchUntil = 0;
-let pitchInZone = true;
+let pitchInZone = false;
+let pitchZoneChecked = false;
 let pitchResolved = false;
 let swingUntil = 0;
 let swingStartedAt = 0;
@@ -517,6 +518,8 @@ function nextPitch() {
   pitchWasSwungAt = false;
   catcherReceiving = false;
   pitchResolved = false;
+  pitchZoneChecked = false;
+  pitchInZone = false;
   pendingSwing = false;
   pitcherThrowStartedAt = performance.now() / 1000;
   const profiles = {
@@ -538,7 +541,8 @@ function nextPitch() {
   const controlSpread = 2.4 + (100 - pitcherStamina) * 0.025;
   const targetX = (Math.random() - 0.5) * controlSpread;
   const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
-  pitchInZone = Math.abs(targetX) < 0.9 && targetY > 0.9 && targetY < 2.25;
+  // The final strike/ball call is made from the ball's actual position at the plate.
+  pitchInZone = false;
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
@@ -852,7 +856,15 @@ function animate() {
 
   if (ballMode === 'pitch' || ballMode === 'hit') {
     ballAge += dt;
+    const previousBallPosition = ball.position.clone();
     ball.position.addScaledVector(ballVelocity, dt);
+    if (ballMode === 'pitch' && !pitchZoneChecked && previousBallPosition.z < 19.58 && ball.position.z >= 19.58) {
+      const crossingT = THREE.MathUtils.clamp((19.58 - previousBallPosition.z) / Math.max(0.0001, ball.position.z - previousBallPosition.z), 0, 1);
+      const crossingX = THREE.MathUtils.lerp(previousBallPosition.x, ball.position.x, crossingT);
+      const crossingY = THREE.MathUtils.lerp(previousBallPosition.y, ball.position.y, crossingT);
+      pitchInZone = Math.abs(crossingX) <= 0.92 && crossingY >= 0.9 && crossingY <= 2.25;
+      pitchZoneChecked = true;
+    }
     // Rotate the stitched baseball to suggest pitch-specific spin and post-contact rotation.
     const spinDirection = ballMode === 'hit' ? 1 : -1;
     ball.rotation.x += dt * ballSpinRate * 0.72 * spinDirection;
