@@ -598,7 +598,7 @@ document.querySelector('#chaseBtn')?.addEventListener('click', () => {
   document.querySelector('#fieldingStatus').textContent = '指定守備員正在追球；靠近球後按「接球」';
 });
 document.querySelector('#catchBtn')?.addEventListener('click', () => {
-  if (match.half !== '下' || ballMode !== 'hit' || !isGroundBall) return;
+  if (match.half !== '下' || ballMode !== 'hit') return;
   fieldingCatchRequested = true;
   setHint('接球指令已送出，守備員靠近球時完成接球');
 });
@@ -770,6 +770,7 @@ function animate() {
         }
         fieldingBallSecured = false;
         fieldingCatchRequested = false;
+        throwFielder = null;
         document.querySelector('#fieldThrowBtn').disabled = true;
         document.querySelector('#catchBtn').disabled = true;
         document.querySelector('#fieldingStatus').textContent = '守備完成；下一球可重新指定球員';
@@ -829,7 +830,7 @@ function animate() {
         chasingFielder.userData.legs[0].rotation.x = Math.sin(now * 11) * 0.42;
         chasingFielder.userData.legs[1].rotation.x = -Math.sin(now * 11) * 0.42;
         const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
+        if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65 && (match.half !== '下' || fieldingCatchRequested)) {
           catchResolved = true;
           ball.visible = false; ballMode = 'idle';
           ballVelocity.set(0, 0, 0);
