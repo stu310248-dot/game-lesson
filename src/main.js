@@ -291,7 +291,10 @@ function chooseFielderForBall() {
   projected.z = THREE.MathUtils.clamp(projected.z, -58, 15);
   fieldingTarget.copy(projected);
   const outfieldRoles = ['leftField', 'centerField', 'rightField'];
-  const projectedToOutfield = projected.z < -10 || Math.abs(projected.x) > 24;
+  // A normal fly ball can land well in front of the warning track. Keep the
+  // outfield responsibility wide enough that shallow and medium flies do not
+  // incorrectly select an infielder and leave the outfielder standing still.
+  const projectedToOutfield = projected.z < 8 || Math.abs(projected.x) > 18;
   const candidates = fielders.filter(player => {
     const isOutfielder = outfieldRoles.includes(player.userData.positionRole);
     if (!isGroundBall && projectedToOutfield) return isOutfielder;
