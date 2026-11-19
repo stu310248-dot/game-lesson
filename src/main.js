@@ -390,6 +390,7 @@ function changePitcher() {
   actionDescription.textContent = '新投手保留自己的體力；每位投手的體力分開計算。';
 }
 let activePitchCurve = 0;
+let ballSpinRate = 18;
 let pitchInZone = true;
 let pitchResolved = false;
 let swingUntil = 0;
@@ -523,6 +524,8 @@ function nextPitch() {
     twoseam: { speed: 36, curve: 2.1, label: '二縫線快速球' }
   };
   const profile = profiles[activePitchType] || profiles.fastball;
+  const spinProfiles = { fastball: 24, twoseam: 20, sinker: 17, slider: 29, curve: 34, changeup: 13, splitter: 22 };
+  ballSpinRate = spinProfiles[activePitchType] || 20;
   pitcherStamina = Math.max(8, pitcherStamina - 1.8);
   updateStaminaUI();
   const fatigue = 1 - (100 - pitcherStamina) * 0.0028;
@@ -581,6 +584,7 @@ function resolveSwingContact() {
   updateRunnerControls(match.snapshot());
   catchResolved = false;
   ballVelocity.set(direction, launch, -17 - quality * 19);
+  ballSpinRate = 38 + quality * 18;
   chasingFielder = fielders.reduce((best, player) =>
     !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
   ballAge = 0;
@@ -810,6 +814,11 @@ function animate() {
   if (ballMode === 'pitch' || ballMode === 'hit') {
     ballAge += dt;
     ball.position.addScaledVector(ballVelocity, dt);
+    // Rotate the stitched baseball to suggest pitch-specific spin and post-contact rotation.
+    const spinDirection = ballMode === 'hit' ? 1 : -1;
+    ball.rotation.x += dt * ballSpinRate * 0.72 * spinDirection;
+    ball.rotation.y += dt * ballSpinRate * 0.38;
+    ball.rotation.z += dt * ballSpinRate * 0.16;
     if (ballMode === 'pitch' && activePitchCurve) {
       ball.position.x += activePitchCurve * dt * dt * 0.42;
       ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
