@@ -1338,27 +1338,25 @@ function animate() {
         chasingFielder.userData.arms[1].rotation.x = chaseStride * 0.78;
         chasingFielder.userData.torso.rotation.z = -0.045 - Math.abs(chaseStride) * 0.12;
         if (!isGroundBall) {
-          const outfielders = fielders.filter(player =>
-            ['leftField', 'centerField', 'rightField'].includes(player.userData.positionRole)
-          );
+          const outfieldRoles = ['leftField', 'centerField', 'rightField'];
           const backupTarget = new THREE.Vector3(
-            fieldingTarget.x * 0.28 + chasingFielder.position.x * 0.72,
+            fieldingTarget.x * 0.22 + chasingFielder.position.x * 0.78,
             0,
-            fieldingTarget.z * 0.28 + chasingFielder.position.z * 0.72
+            fieldingTarget.z * 0.22 + chasingFielder.position.z * 0.78
           );
-          outfielders.forEach(player => {
-            if (player === chasingFielder) return;
+          fielders.forEach(player => {
+            if (player === chasingFielder || !outfieldRoles.includes(player.userData.positionRole)) return;
             const home = player.userData.homePosition;
             const supportTarget = new THREE.Vector3(
-              home.x * 0.62 + backupTarget.x * 0.38,
+              home.x * 0.72 + backupTarget.x * 0.28,
               0,
-              home.z * 0.62 + backupTarget.z * 0.38
+              home.z * 0.72 + backupTarget.z * 0.28
             );
             const supportDistance = Math.hypot(
               supportTarget.x - player.position.x,
               supportTarget.z - player.position.z
             );
-            const supportStep = Math.min(supportDistance, 5.2 * dt);
+            const supportStep = Math.min(supportDistance, 4.2 * dt);
             if (supportDistance > 0.001) {
               player.position.x += (supportTarget.x - player.position.x) / supportDistance * supportStep;
               player.position.z += (supportTarget.z - player.position.z) / supportDistance * supportStep;
@@ -1366,7 +1364,7 @@ function animate() {
                 supportTarget.x - player.position.x,
                 supportTarget.z - player.position.z
               );
-              const supportStride = Math.sin(now * 8) * 0.2;
+              const supportStride = Math.sin(now * 7) * 0.16;
               player.userData.legs[0].rotation.x = supportStride;
               player.userData.legs[1].rotation.x = -supportStride;
               player.userData.arms[0].rotation.x = -supportStride * 0.7;
