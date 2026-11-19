@@ -232,8 +232,21 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
 const pitcher = makePlayer(redMat, [0, 0, 0], 'pitcher');
 const batter = makePlayer(blueMat, [-2.2, 0, 21.2], 'batter');
 const catcher = makePlayer(redMat, [0, 0, 25.5], 'catcher');
-const fielderPositions = [[-15,0,7],[15,0,7],[-27,0,-10],[27,0,-10],[0,0,-25],[-42,0,-38],[0,0,-48],[42,0,-38]];
-const fielders = fielderPositions.map((p,i)=>makePlayer(i<2?blueMat:redMat,p,'fielder'));
+const fielderPositions = [
+  { role: 'thirdBase', label: '三壘手', position: [-15, 0, 7] },
+  { role: 'firstBase', label: '一壘手', position: [15, 0, 7] },
+  { role: 'shortstop', label: '游擊手', position: [-27, 0, -10] },
+  { role: 'secondBase', label: '二壘手', position: [27, 0, -10] },
+  { role: 'leftField', label: '左外野手', position: [-42, 0, -38] },
+  { role: 'centerField', label: '中外野手', position: [0, 0, -48] },
+  { role: 'rightField', label: '右外野手', position: [42, 0, -38] }
+];
+const fielders = fielderPositions.map(({ role, label, position }) => {
+  const player = makePlayer(redMat, position, 'fielder');
+  player.userData.positionRole = role;
+  player.userData.positionLabel = label;
+  return player;
+});
 
 // Visible base runners and simple automatic outfield pursuit.
 const runners = [0,1,2].map(() => makePlayer(blueMat, [0,-20,0], 'runner'));
@@ -266,7 +279,8 @@ function chooseFielderForBall() {
   return fielders.reduce((best, player) => {
     const home = player.userData.homePosition;
     const routeDistance = home.distanceTo(projected);
-    const rolePenalty = isGroundBall && player.position.z < -20 ? 5 : 0;
+    const isOutfielder = ['leftField', 'centerField', 'rightField'].includes(player.userData.positionRole);
+    const rolePenalty = isGroundBall && isOutfielder ? 8 : !isGroundBall && !isOutfielder ? 6 : 0;
     const score = routeDistance + rolePenalty;
     return !best || score < best.score ? { player, score } : best;
   }, null)?.player || fielders[0];
@@ -705,6 +719,9 @@ function setView(name) {
 }
 const controlsTarget = new THREE.Vector3(0,0,-5);
 function setHint(text) { hint.textContent = text; }
+function isStrikeAtPlate(x, y) {
+  return Math.abs(x) <= zx && y >= zy0 && y <= zy1;
+}
 function updateCount() {
   document.querySelector('#balls').textContent = balls;
   document.querySelector('#strikes').textContent = strikes;
@@ -753,7 +770,7 @@ function nextPitch() {
   const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
   // The final strike/ball call is made from the ball's actual position at the plate.
   pitchInZone = false;
-  pitchTargetInZone = Math.abs(targetX) <= 0.92 && targetY >= 0.9 && targetY <= 2.25;
+  pitchTargetInZone = false;
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
@@ -762,6 +779,20 @@ function nextPitch() {
   const destination = new THREE.Vector3(targetX, targetY, 19.7);
   const duration = 34 / effectiveSpeed;
   ballVelocity.copy(destination.sub(ball.position)).multiplyScalar(1 / duration);
+  const predictedTime = Math.max(0, (zz - ball.position.z) / Math.max(0.001, ballVelocity.z));
+  const predictedBreak = activePitchCurve * 1.15;
+  const predictedDrop = activePitchType === 'curve'
+    ? 5.5
+    : activePitchType === 'splitter'
+      ? 3.8
+      : activePitchType === 'sinker'
+        ? 2.2
+        : 0.8;
+  const predictedX = ball.position.x + ballVelocity.x * predictedTime +
+    0.5 * predictedBreak * predictedTime * predictedTime;
+  const predictedY = ball.position.y + ballVelocity.y * predictedTime -
+    0.5 * predictedDrop * predictedTime * predictedTime;
+  pitchTargetInZone = isStrikeAtPlate(predictedX, predictedY);
   setView('batter');
   const speedKmh = Math.round(effectiveSpeed * 3.6);
   setHint(profile.label + ' ' + speedKmh + ' km/h，球已投出！');
@@ -859,8 +890,16 @@ function swing() {
 }
 function finishPitch() {
   if (ballMode === 'pitch' && !pitchResolved) {
+    if (!pitchZoneChecked) {
+      pitchInZone = isStrikeAtPlate(ball.position.x, ball.position.y);
+      pitchZoneChecked = true;
+    }
     pitchResolved = true;
     match.pitch({ inZone: pitchInZone, swung: false });
+    actionTitle.textContent = pitchInZone ? '好球' : '壞球';
+    actionDescription.textContent = pitchInZone
+      ? '球在本壘板前實際穿越好球帶。'
+      : '球在本壘板前實際偏離好球帶。';
   }
   ball.visible = false; ballMode = 'idle'; activePitchCurve = 0;
   updateRunnerControls(match.snapshot());
@@ -1131,7 +1170,7 @@ function animate() {
       const crossingT = THREE.MathUtils.clamp((19.58 - previousBallPosition.z) / Math.max(0.0001, ball.position.z - previousBallPosition.z), 0, 1);
       const crossingX = THREE.MathUtils.lerp(previousBallPosition.x, ball.position.x, crossingT);
       const crossingY = THREE.MathUtils.lerp(previousBallPosition.y, ball.position.y, crossingT);
-      pitchInZone = Math.abs(crossingX) <= 0.92 && crossingY >= 0.9 && crossingY <= 2.25;
+      pitchInZone = isStrikeAtPlate(crossingX, crossingY);
       pitchZoneChecked = true;
     }
     // Rotate the stitched baseball to suggest pitch-specific spin and post-contact rotation.
