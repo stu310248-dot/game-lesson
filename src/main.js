@@ -915,6 +915,8 @@ function animate() {
         hitMessageTimer = 3.2;
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
       }
+      // A home run resolves the play immediately; do not continue fielding or physics updates.
+      if (ballMode === 'hit') {
       if (chasingFielder && ballAge < 2.8) {
         const target = new THREE.Vector3(
           THREE.MathUtils.clamp(ball.position.x, -55, 55), 0,
@@ -998,6 +1000,7 @@ function animate() {
         chasingFielder = null;
         setHint('球已停止，按「投球」繼續比賽');
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
+      }
       }
     } else {
       if (ball.position.z > 20.1 && !catcherReceiving && !pendingSwing) {
