@@ -558,7 +558,8 @@ aiToggle?.addEventListener('click', () => {
   aiPitchCooldown = aiOpponentEnabled ? 0.8 : 999;
   aiToggle.classList.toggle('active', aiOpponentEnabled);
   aiToggle.textContent = aiOpponentEnabled ? 'AI 對手：開' : 'AI 對手：關';
-  setHint(aiOpponentEnabled ? 'AI 對手已啟用：自動投球。' : 'AI 對手已暫停：請手動按投球。');
+  updateControlRole(match.snapshot());
+  setHint(aiOpponentEnabled ? 'AI 對手已啟用：自動投球與 AI 打擊。' : 'AI 對手已暫停：AI 打者將不揮棒，投球改為手動。');
 });
 document.querySelector('#fullscreenBtn').addEventListener('click', async () => {
   if (!document.fullscreenElement) await document.querySelector('.app-shell').requestFullscreen?.();
