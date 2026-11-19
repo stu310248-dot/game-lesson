@@ -933,8 +933,12 @@ function animate() {
         );
         chasingFielder.position.lerp(target, Math.min(1, dt * 2.4));
         chasingFielder.rotation.y = Math.atan2(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        chasingFielder.userData.legs[0].rotation.x = Math.sin(now * 11) * 0.42;
-        chasingFielder.userData.legs[1].rotation.x = -Math.sin(now * 11) * 0.42;
+        const chaseStride = Math.sin(now * 11) * 0.42;
+        chasingFielder.userData.legs[0].rotation.x = chaseStride;
+        chasingFielder.userData.legs[1].rotation.x = -chaseStride;
+        chasingFielder.userData.arms[0].rotation.x = -chaseStride * 0.78;
+        chasingFielder.userData.arms[1].rotation.x = chaseStride * 0.78;
+        chasingFielder.userData.torso.rotation.z = -0.045 - Math.abs(chaseStride) * 0.12;
         const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
         if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
           catchResolved = true;
@@ -975,6 +979,8 @@ function animate() {
           ballMode = 'throw';
           ballAge = 0;
           throwFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+          throwFielder.userData.arms.forEach(arm => { arm.rotation.x = 0; });
+          throwFielder.userData.torso.rotation.z = 0;
           throwFielder.userData.arms[0].rotation.z = 0.95;
           setHint('守備員接到滾地球，傳向一壘！');
           actionTitle.textContent = '守備傳球！';
