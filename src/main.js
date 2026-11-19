@@ -86,7 +86,7 @@ for (let i = 0; i < 8; i++) {
   const stripe = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 52), darkGrassMat);
   stripe.rotation.x = -Math.PI / 2;
   stripe.rotation.z = (i - 3.5) * 0.018;
-  stripe.position.set((i - 3.5) * 9.2, 0.012, -9);
+  stripe.position.set((i - 3.5) * 9.2, 0.012, -34);
   stripe.receiveShadow = true; field.add(stripe);
 }
 
@@ -108,6 +108,7 @@ for (const [key, pos] of Object.entries(basePositions)) {
 }
 cylinder(field, 2.15, 2.15, 0.12, [0, 0.12, 0], dirtMat, 48);
 cylinder(field, 0.7, 0.7, 0.45, [0, 0.3, 0], dirtMat, 32);
+box(field, 'pitching-rubber', [1.2, 0.12, 0.18], [0, 0.58, -0.18], chalkMat, false);
 
 // Foul lines and batter boxes.
 line([[0, 0.08, 22], [-9, 0.08, 22], [-34, 0.08, -4], [-62, 0.08, -35]], chalkMat, 0.07);
@@ -165,6 +166,16 @@ for (const x of [-27, 27]) {
   box(scene, 'dugout', [20, 2.6, 5], [x, 1.3, 28], mat(0x18344d));
   box(scene, 'dugout-roof', [21, 0.5, 6], [x, 2.9, 28], mat(0x294d69));
 }
+const backstopMat = new THREE.MeshBasicMaterial({
+  color: 0x9ab3bf,
+  transparent: true,
+  opacity: 0.22,
+  wireframe: true
+});
+const backstop = new THREE.Mesh(new THREE.PlaneGeometry(34, 9, 17, 5), backstopMat);
+backstop.position.set(0, 4.5, 31.5);
+scene.add(backstop);
+for (const x of [-17, 17]) cylinder(scene, 0.08, 0.08, 9, [x, 4.5, 31.5], mat(0x8da2ad), 10);
 box(scene, 'scoreboard-frame', [28, 10, 1.2], [0, 17, -79], mat(0x152c40));
 box(scene, 'scoreboard-screen', [25, 7, 0.25], [0, 17, -78.3], mat(0x071522));
 
@@ -183,8 +194,12 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
   const jersey = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.72, 5, 12), teamMaterial);
   jersey.scale.set(1.05, 1, 0.72); jersey.castShadow = true; torso.add(jersey);
   const chestStripe = box(torso, 'jersey-trim', [0.64, 0.055, 0.035], [0, 0.14, 0.29], trimMat, false);
+  box(torso, 'jersey-piping-left', [0.035, 0.62, 0.04], [-0.24, 0.02, 0.3], trimMat, false);
+  box(torso, 'jersey-piping-right', [0.035, 0.62, 0.04], [0.24, 0.02, 0.3], trimMat, false);
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.035, 8, 24), trimMat);
   collar.position.set(0, 0.43, 0); collar.rotation.x = Math.PI / 2; torso.add(collar);
+  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.035, 8, 24), shoeMat);
+  belt.scale.set(1.05, 0.72, 1); belt.position.set(0, -0.32, 0); belt.rotation.x = Math.PI / 2; torso.add(belt);
   const neck = cylinder(root, 0.13, 0.15, 0.24, [0, 2.25, 0], skinMat, 16);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.255, 20, 16), skinMat);
   head.scale.set(0.94, 1.05, 0.92);
@@ -226,7 +241,8 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
     finger.rotation.z = i * -0.2;
   }
   if (role === 'catcher') {
-    const protector = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.86, 0.18), mat(0x172b42));
+    const protector = new THREE.Mesh(new THREE.CapsuleGeometry(0.38, 0.48, 4, 10), mat(0x172b42));
+    protector.scale.set(1, 1, 0.28);
     protector.position.set(0, 1.57, 0.36); protector.castShadow = true; root.add(protector);
     for (const side of [-1, 1]) {
       const shin = box(root, 'catcher-shin-guard', [0.24, 0.58, 0.2], [side * 0.22, 0.42, 0.18], mat(0x263d57));
