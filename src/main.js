@@ -524,6 +524,61 @@ let aiDecisionPitchNumber = -1;
 let displayedHalf = '上';
 const aimCursor = document.querySelector('#aimCursor');
 const aiToggle = document.querySelector('#aiToggle');
+const soundToggle = document.querySelector('#soundToggle');
+let soundEnabled = localStorage.getItem('diamond-baseball-sound') !== 'off';
+let audioContext = null;
+let lastSoundCall = '';
+function ensureAudio() {
+  if (!soundEnabled) return null;
+  audioContext ||= new AudioContext();
+  if (audioContext.state === 'suspended') audioContext.resume();
+  return audioContext;
+}
+function playSound(type) {
+  const context = ensureAudio();
+  if (!context) return;
+  const now = context.currentTime;
+  const presets = {
+    pitch: { frequency: 180, duration: 0.08, gain: 0.035, wave: 'sine' },
+    swing: { frequency: 110, duration: 0.12, gain: 0.055, wave: 'triangle' },
+    catch: { frequency: 440, duration: 0.08, gain: 0.05, wave: 'square' },
+    out: { frequency: 230, duration: 0.2, gain: 0.05, wave: 'sawtooth' },
+    hit: { frequency: 95, duration: 0.16, gain: 0.08, wave: 'triangle' },
+    homer: { frequency: 520, duration: 0.5, gain: 0.07, wave: 'sine' }
+  };
+  const preset = presets[type] || presets.hit;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = preset.wave;
+  oscillator.frequency.setValueAtTime(preset.frequency, now);
+  if (type === 'homer') oscillator.frequency.exponentialRampToValueAtTime(900, now + preset.duration);
+  gain.gain.setValueAtTime(preset.gain, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + preset.duration);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + preset.duration);
+}
+function playSoundForCall(call) {
+  if (!call || call === lastSoundCall) return;
+  lastSoundCall = call;
+  if (/全壘打/.test(call)) playSound('homer');
+  else if (/出局|三振|接殺|封殺|觸殺/.test(call)) playSound('out');
+  else if (/安打|保送|得分|盜/.test(call)) playSound('hit');
+  else if (/好球|壞球/.test(call)) playSound('catch');
+}
+function updateSoundButton() {
+  if (!soundToggle) return;
+  soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+  soundToggle.classList.toggle('muted', !soundEnabled);
+  soundToggle.setAttribute('aria-label', soundEnabled ? '關閉音效' : '開啟音效');
+}
+soundToggle?.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('diamond-baseball-sound', soundEnabled ? 'on' : 'off');
+  updateSoundButton();
+  if (soundEnabled) playSound('catch');
+});
+updateSoundButton();
 const clock = new THREE.Clock();
 const match = new MatchEngine(syncMatchUI);
 
@@ -583,6 +638,7 @@ function syncMatchUI(state) {
         : '攻守交換！現在由你打擊，AI 負責投球。');
     }
   } else if (state.lastCall) setHint(state.lastCall);
+  playSoundForCall(state.lastCall);
   if (state.gameOver) {
     if (!developmentRewarded) {
       developmentPlayers[activePitcherIndex].trainingPoints += 1;
@@ -667,6 +723,7 @@ function nextPitch() {
   setView('batter');
   const speedKmh = Math.round(effectiveSpeed * 3.6);
   setHint(profile.label + ' ' + speedKmh + ' km/h，球已投出！');
+  playSound('pitch');
   actionTitle.textContent = profile.label + ' · ' + speedKmh + ' km/h';
   actionDescription.textContent = pitcherStamina < 30 ? '投手體力偏低，球速與控球都會下降。' : '球路會隨球種產生變化，抓準進壘時機揮棒。';
 }
@@ -740,6 +797,7 @@ function swing() {
   const now = performance.now() / 1000;
   if (batterSwinging && now - swingStartedAt < 0.18) return;
   swingStartedAt = now;
+  playSound('swing');
   swingUntil = now + 0.42;
   batterSwinging = true;
   batPivot.rotation.z = -0.72;
