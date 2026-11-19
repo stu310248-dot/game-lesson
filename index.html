@@ -54,8 +54,12 @@
           <button id="swingBtn" class="primary-btn"><span>⚡</span> 揮棒</button>
         </div>
       </div>
-      <div class="advanced-controls"><label>投手球種<select id="pitchType"><option value="fastball">四縫線快速球</option><option value="twoseam">二縫線快速球</option><option value="slider">滑球</option><option value="curve">曲球</option><option value="changeup">變速球</option><option value="splitter">指叉球</option><option value="sinker">伸卡球</option></select></label><label>登板投手<select id="pitcherSelect"><option value="0">陳曜廷・先發</option><option value="1">林奕辰・先發</option><option value="2">周柏翰・先發</option><option value="3">許承恩・中繼</option><option value="4">江子皓・終結者</option></select></label><button id="changePitcherBtn" class="secondary-btn">更換投手</button><span id="pitcherName">陳曜廷</span><span id="baseStatus">一壘○　　二壘○　　三壘○</span><div class="stamina-control"><span>投手體力</span><div class="stamina-track"><i id="staminaFill"></i></div><b id="staminaValue">100%</b></div><button id="restartBtn" class="secondary-btn">重新開始</button></div>
-      <div class="bottom-note"><span>操作：滑鼠移動瞄準　<kbd>左鍵</kbd> 揮棒　<kbd>空白鍵</kbd> 揮棒　<kbd>P</kbd> 投球</span><span>第一階段開發測試版</span></div>
+      <div class="advanced-controls"><label>投手球種<select id="pitchType"><option value="fastball">四縫線快速球</option><option value="twoseam">二縫線快速球</option><option value="slider">滑球</option><option value="curve">曲球</option><option value="changeup">變速球</option><option value="splitter">指叉球</option><option value="sinker">伸卡球</option></select></label><label>登板投手<select id="pitcherSelect"><option value="0">陳曜廷・先發</option><option value="1">林奕辰・先發</option><option value="2">周柏翰・先發</option><option value="3">許承恩・中繼</option><option value="4">江子皓・終結者</option></select></label><button id="changePitcherBtn" class="secondary-btn">更換投手</button><span id="pitcherName">陳曜廷</span><span id="baseStatus">一壘○　　二壘○　　三壘○</span>
+        <div class="fielding-tools" aria-label="跑壘與傳球操作">
+          <span>跑壘</span><button id="runnerNormalBtn" class="mini-control active" type="button">穩健</button><button id="runnerAggressiveBtn" class="mini-control" type="button">積極推進</button>
+          <span>傳球目標</span><button class="mini-control throw-target active" data-base="first" type="button">一壘</button><button class="mini-control throw-target" data-base="second" type="button">二壘</button><button class="mini-control throw-target" data-base="third" type="button">三壘</button><button class="mini-control throw-target" data-base="home" type="button">本壘</button>
+        </div><div class="stamina-control"><span>投手體力</span><div class="stamina-track"><i id="staminaFill"></i></div><b id="staminaValue">100%</b></div><button id="restartBtn" class="secondary-btn">重新開始</button></div>
+      <div class="bottom-note"><span>操作：左鍵揮棒　<kbd>1</kbd> 穩健跑壘　<kbd>2</kbd> 積極推進　選擇傳球壘包</span><span>第一階段開發測試版</span></div>
     </section>
   </main>
   <script type="module" src="/src/main.js"></script>
