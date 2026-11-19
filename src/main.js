@@ -233,13 +233,13 @@ const pitcher = makePlayer(redMat, [0, 0, 0], 'pitcher');
 const batter = makePlayer(blueMat, [-2.2, 0, 21.2], 'batter');
 const catcher = makePlayer(redMat, [0, 0, 25.5], 'catcher');
 const fielderPositions = [
-  { role: 'thirdBase', label: '三壘手', position: [-15, 0, 7] },
-  { role: 'firstBase', label: '一壘手', position: [15, 0, 7] },
-  { role: 'shortstop', label: '游擊手', position: [-27, 0, -10] },
-  { role: 'secondBase', label: '二壘手', position: [27, 0, -10] },
-  { role: 'leftField', label: '左外野手', position: [-42, 0, -38] },
-  { role: 'centerField', label: '中外野手', position: [0, 0, -48] },
-  { role: 'rightField', label: '右外野手', position: [42, 0, -38] }
+  { role: 'thirdBase', label: '三壘手', position: [-10.5, 0, 5.2] },
+  { role: 'firstBase', label: '一壘手', position: [10.5, 0, 5.2] },
+  { role: 'shortstop', label: '游擊手', position: [-5.5, 0, -1.5] },
+  { role: 'secondBase', label: '二壘手', position: [5.5, 0, -1.5] },
+  { role: 'leftField', label: '左外野手', position: [-30, 0, -23] },
+  { role: 'centerField', label: '中外野手', position: [0, 0, -32] },
+  { role: 'rightField', label: '右外野手', position: [30, 0, -23] }
 ];
 const fielders = fielderPositions.map(({ role, label, position }) => {
   const player = makePlayer(redMat, position, 'fielder');
@@ -475,6 +475,8 @@ function populateTeamSelects() {
 function updateTeamUI() {
   const away = teamRoster[selectedTeams.away];
   const home = teamRoster[selectedTeams.home];
+  redMat.color.setHex(home.color);
+  blueMat.color.setHex(away.color);
   document.querySelector('#awayTeamName').textContent = away.name;
   document.querySelector('#homeTeamName').textContent = home.name;
   document.querySelector('.team-symbol.red').textContent = away.short;
