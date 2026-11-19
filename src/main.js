@@ -786,14 +786,16 @@ function animate() {
   });
 
   const view = cameraViews[currentView];
-  if (cameraTween < 1) {
-    cameraTween = Math.min(1, cameraTween + dt * 1.8);
-    const t = cameraTween * cameraTween * (3 - 2 * cameraTween);
-    camera.position.lerpVectors(cameraFrom, new THREE.Vector3(...view.position), t);
-    controlsTarget.lerpVectors(cameraTargetFrom, new THREE.Vector3(...view.target), t);
-  } else {
-    camera.position.set(...view.position);
-    controlsTarget.set(...view.target);
+  if (ballMode !== 'hit') {
+    if (cameraTween < 1) {
+      cameraTween = Math.min(1, cameraTween + dt * 1.8);
+      const t = cameraTween * cameraTween * (3 - 2 * cameraTween);
+      camera.position.lerpVectors(cameraFrom, new THREE.Vector3(...view.position), t);
+      controlsTarget.lerpVectors(cameraTargetFrom, new THREE.Vector3(...view.target), t);
+    } else {
+      camera.position.set(...view.position);
+      controlsTarget.set(...view.target);
+    }
   }
   camera.lookAt(controlsTarget);
 
@@ -874,13 +876,19 @@ function animate() {
     }
     if (ballMode === 'hit') {
       strikeZone.visible = false;
-      if (currentView === 'field') {
-        const followTarget = ball.position.clone();
-        const followPosition = followTarget.clone().add(new THREE.Vector3(23, 16, 27));
-        camera.position.lerp(followPosition, Math.min(1, dt * 1.6));
-        controlsTarget.lerp(followTarget, Math.min(1, dt * 2.4));
-        camera.lookAt(controlsTarget);
-      }
+      // Keep the selected camera angle, but smoothly track the ball after contact.
+      const followOffsets = {
+        broadcast: new THREE.Vector3(24, 18, 32),
+        batter: new THREE.Vector3(-15, 11, 25),
+        pitcher: new THREE.Vector3(0, 15, 29),
+        field: new THREE.Vector3(23, 16, 27),
+        runner: new THREE.Vector3(18, 13, 26)
+      };
+      const followTarget = ball.position.clone();
+      const followPosition = followTarget.clone().add(followOffsets[currentView] || followOffsets.field);
+      camera.position.lerp(followPosition, Math.min(1, dt * 1.8));
+      controlsTarget.lerp(followTarget, Math.min(1, dt * 2.8));
+      camera.lookAt(controlsTarget);
       if (pendingHitKind === 'homer' && !homerResolved && ball.position.z < -55 && ball.position.y > 1.5) {
         homerResolved = true;
         catchResolved = true;
