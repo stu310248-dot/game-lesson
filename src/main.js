@@ -566,7 +566,7 @@ document.querySelector('#pitchBtn').addEventListener('click', () => {
 });
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; selectedRunnerBase = 0; updateRunnerControls(match.snapshot()); chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; selectedRunnerBase = 0; updateRunnerControls(match.snapshot()); chasingFielder = null; throwFielder = null; catchResolved = false; manualFielderChase = false; fieldingCatchRequested = false; fieldingBallSecured = false; document.querySelector('#catchBtn').disabled = true; document.querySelector('#fieldThrowBtn').disabled = true; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#runnerNormalBtn')?.addEventListener('click', () => {
   runnerAggressive = false;
@@ -904,7 +904,7 @@ function animate() {
           chasingFielder = null;
         }
         ball.visible = false; ballMode = 'idle';
-        if (!catchResolved && !(match.half === '下' && isGroundBall)) {
+        if (!catchResolved) {
           const aiAggressive = match.half === '下' ? Math.random() < (pendingHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
           match.pitch({ contact: true, result: pendingHitKind, aggressive: aiAggressive });
           setHint('球落地形成安打！');
