@@ -201,6 +201,7 @@ let isGroundBall = false;
 let throwStartedAt = 0;
 let throwFielder = null;
 let selectedThrowBase = 'first';
+let selectedRunnerBase = 0;
 let runnerAggressive = false;
 let throwWasForceOut = true;
 
@@ -344,6 +345,27 @@ function updateControlRole(state) {
   const swingButton = document.querySelector('#swingBtn');
   if (swingButton) swingButton.disabled = !!state.gameOver || !userBatting;
 }
+function updateRunnerControls(state) {
+  const buttons = [...document.querySelectorAll('.runner-select')];
+  buttons.forEach(button => {
+    const index = Number(button.dataset.runnerBase);
+    button.classList.toggle('active', index === selectedRunnerBase);
+    button.disabled = !state.bases[index] || state.half !== '上' || state.gameOver;
+  });
+  const stealButton = document.querySelector('#stealBtn');
+  const canSteal = state.half === '上' && !state.gameOver && ballMode === 'idle' &&
+    !!state.bases[selectedRunnerBase] &&
+    (selectedRunnerBase === 2 || !state.bases[selectedRunnerBase + 1]);
+  if (stealButton) stealButton.disabled = !canSteal;
+  const status = document.querySelector('#runnerStatus');
+  if (!status) return;
+  if (state.half !== '上') status.textContent = '目前是守備局，玩家無法控制跑壘';
+  else if (ballMode !== 'idle') status.textContent = '球正在比賽中，等待球停下後再發動盜壘';
+  else if (!state.bases[selectedRunnerBase]) status.textContent = '所選壘包目前沒有跑者';
+  else if (selectedRunnerBase < 2 && state.bases[selectedRunnerBase + 1]) status.textContent = '前方壘包已有跑者，不能盜壘';
+  else status.textContent = '可嘗試盜向下一個壘包；盜壘有失敗出局風險';
+}
+
 function syncMatchUI(state) {
   balls = state.balls; strikes = state.strikes; outs = state.outs;
   document.querySelector('#balls').textContent = balls;
@@ -356,6 +378,7 @@ function syncMatchUI(state) {
   const baseNode = document.querySelector('#baseStatus');
   if (baseNode) baseNode.textContent = baseText;
   animateRunnersToBases(state.bases);
+  updateRunnerControls(state);
   updateControlRole(state);
   if (state.half !== displayedHalf) {
     displayedHalf = state.half;
@@ -529,7 +552,7 @@ document.querySelector('#pitchBtn').addEventListener('click', () => {
 });
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
-document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
+document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; selectedRunnerBase = 0; updateRunnerControls(match.snapshot()); chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
 document.querySelector('#swingBtn').addEventListener('click', swing);
 document.querySelector('#runnerNormalBtn')?.addEventListener('click', () => {
   runnerAggressive = false;
@@ -542,6 +565,30 @@ document.querySelector('#runnerAggressiveBtn')?.addEventListener('click', () => 
   document.querySelector('#runnerAggressiveBtn').classList.add('active');
   document.querySelector('#runnerNormalBtn')?.classList.remove('active');
   setHint('跑壘策略：積極推進，長打時可能多得一個壘包，但也有風險。');
+});
+document.querySelectorAll('.runner-select').forEach(btn => btn.addEventListener('click', () => {
+  selectedRunnerBase = Number(btn.dataset.runnerBase);
+  document.querySelectorAll('.runner-select').forEach(item => item.classList.toggle('active', item === btn));
+  updateRunnerControls(match.snapshot());
+  setHint('已選擇' + ['一壘','二壘','三壘'][selectedRunnerBase] + '跑者。');
+}));
+document.querySelector('#stealBtn')?.addEventListener('click', () => {
+  if (ballMode !== 'idle' || match.half !== '上' || match.gameOver) return;
+  const chanceByBase = [0.68, 0.62, 0.52];
+  const success = Math.random() < chanceByBase[selectedRunnerBase];
+  const completed = match.steal(selectedRunnerBase, success);
+  if (completed) {
+    setView('runner');
+    setHint(match.lastCall);
+    actionTitle.textContent = '盜壘成功！';
+    actionDescription.textContent = '指定跑者已實際推進壘包，壘包與比分同步更新。';
+  } else if (!success) {
+    setHint('盜壘失敗，跑者出局！');
+    actionTitle.textContent = '盜壘失敗';
+    actionDescription.textContent = '守備完成觸殺，出局數已更新。';
+  } else {
+    setHint(match.lastCall);
+  }
 });
 document.querySelectorAll('.throw-target').forEach(btn => btn.addEventListener('click', () => {
   selectedThrowBase = btn.dataset.base;
@@ -594,6 +641,7 @@ window.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'w') document.querySelector('.throw-target[data-base="second"]')?.click();
   if (event.key.toLowerCase() === 'e') document.querySelector('.throw-target[data-base="third"]')?.click();
   if (event.key.toLowerCase() === 'r') document.querySelector('.throw-target[data-base="home"]')?.click();
+  if (event.key.toLowerCase() === 's') document.querySelector('#stealBtn')?.click();
   const views = ['broadcast','batter','pitcher','field','runner'];
   if ('12345'.includes(event.key)) setView(views[Number(event.key)-1]);
 });
