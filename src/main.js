@@ -397,6 +397,7 @@ let fieldingCatchPlayer = null;
 let fieldingCatchStartedAt = 0;
 let fieldingCatchUntil = 0;
 let pitchInZone = false;
+let pitchTargetInZone = false;
 let pitchZoneChecked = false;
 let pitchResolved = false;
 let swingUntil = 0;
@@ -543,6 +544,7 @@ function nextPitch() {
   const targetY = 0.75 + Math.random() * (1.9 + (100 - pitcherStamina) * 0.006);
   // The final strike/ball call is made from the ball's actual position at the plate.
   pitchInZone = false;
+  pitchTargetInZone = Math.abs(targetX) <= 0.92 && targetY >= 0.9 && targetY <= 2.25;
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
@@ -881,7 +883,7 @@ function animate() {
     // AI batter decision in the bottom half: swing at most pitches in-zone and sometimes chase.
     if (ballMode === 'pitch' && match.half === '下' && aiOpponentEnabled && !pendingSwing && !pitchResolved && ball.position.z >= 13.4 && aiDecisionPitchNumber !== pitchNumber) {
       aiDecisionPitchNumber = pitchNumber;
-      const shouldSwing = pitchInZone ? Math.random() < 0.82 : Math.random() < 0.28;
+      const shouldSwing = pitchTargetInZone ? Math.random() < 0.82 : Math.random() < 0.28;
       if (shouldSwing) {
         const travel = THREE.MathUtils.clamp((AIM_CONTACT_Z - ball.position.z) / Math.max(1, ballVelocity.z), 0, 0.18);
         aimPoint.set(
