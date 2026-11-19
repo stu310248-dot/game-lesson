@@ -224,7 +224,7 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
   root.userData = {
     role, torso, arms, legs, baseY: position[1],
     homePosition: new THREE.Vector3(...position),
-    fieldingSpeed: role === 'fielder' ? 7.2 : 6.4,
+    fieldingSpeed: role === 'fielder' ? 12.5 : 6.4,
     reactionDelay: role === 'fielder' ? 0.18 : 0.25
   };
   return root;
@@ -284,6 +284,17 @@ function chooseFielderForBall() {
     const score = routeDistance + rolePenalty;
     return !best || score < best.score ? { player, score } : best;
   }, null)?.player || fielders[0];
+}
+
+function resetFieldersToHome() {
+  fielders.forEach(player => {
+    player.position.copy(player.userData.homePosition);
+    player.rotation.y = 0;
+    player.userData.fieldingState = 'ready';
+    player.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+    player.userData.arms.forEach(arm => { arm.rotation.x = 0; arm.rotation.z = -0.32; });
+    player.userData.torso.rotation.z = 0;
+  });
 }
 
 function animateRunnersToBases(baseState) {
@@ -734,6 +745,7 @@ function resetCount() {
 }
 function nextPitch() {
   if (ballMode === 'pitch' || ballMode === 'hit' || ballMode === 'throw' || match.gameOver) return;
+  resetFieldersToHome();
   lastSoundCall = '';
   aiPitchCooldown = 3.2 + Math.random() * 1.2;
   if (aiOpponentEnabled) {
@@ -1260,6 +1272,17 @@ function animate() {
       if (ballMode === 'hit') {
       if (chasingFielder && ballAge < 2.8) {
         const hasReacted = now >= fieldingStartedAt;
+        if (hasReacted) {
+          if (isGroundBall) {
+            fieldingTarget.set(ball.position.x, 0, ball.position.z);
+          } else {
+            const leadTime = THREE.MathUtils.clamp((ball.position.y - 0.3) / 12, 0.12, 0.55);
+            fieldingTarget.copy(ball.position).addScaledVector(ballVelocity, leadTime);
+            fieldingTarget.y = 0;
+          }
+          fieldingTarget.x = THREE.MathUtils.clamp(fieldingTarget.x, -58, 58);
+          fieldingTarget.z = THREE.MathUtils.clamp(fieldingTarget.z, -58, 15);
+        }
         const target = hasReacted ? fieldingTarget : chasingFielder.position;
         const distanceToTarget = Math.hypot(
           target.x - chasingFielder.position.x,
@@ -1286,7 +1309,7 @@ function animate() {
         chasingFielder.userData.torso.rotation.z = -0.045 - Math.abs(chaseStride) * 0.12;
         const horizontalDistance = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
         if (!isGroundBall && pendingHitKind !== 'homer' && !catchResolved && hasReacted &&
-            ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 1.65) {
+            ballAge > 0.35 && ball.position.y > 1.25 && horizontalDistance < 2.2) {
           catchResolved = true;
           ball.visible = false; ballMode = 'idle';
           ballVelocity.set(0, 0, 0);
@@ -1296,16 +1319,16 @@ function animate() {
           catchAnimationUntil = now + 0.9;
           match.batterNumber++;
           match.addOut('飛球接殺！打者出局');
-          setHint('守備員接殺成功！打者出局');
+          setHint(`${fieldingCatchPlayer.userData.positionLabel} 接殺成功！打者出局`);
           actionTitle.textContent = '接殺出局！';
           actionDescription.textContent = '守備員成功接住飛球，出局數已更新。';
           chasingFielder = null;
         }
       }
       if (isGroundBall && !catchResolved && chasingFielder && now >= fieldingStartedAt &&
-          ball.position.y <= 0.3 && ballAge > 0.45) {
+          ball.position.y <= 1.1 && ballAge > 0.6) {
         const distanceToBall = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        if (distanceToBall < 2.1) {
+        if (distanceToBall < 3.2) {
           catchResolved = true;
           throwFielder = chasingFielder;
           throwStartedAt = now;
@@ -1329,7 +1352,7 @@ function animate() {
           throwFielder.userData.arms.forEach(arm => { arm.rotation.x = 0; });
           throwFielder.userData.torso.rotation.z = 0;
           throwFielder.userData.arms[0].rotation.z = 0.95;
-          setHint('守備員接到滾地球，傳向一壘！');
+          setHint(`${throwFielder.userData.positionLabel} 接到滾地球，傳向一壘！`);
           actionTitle.textContent = '守備傳球！';
           actionDescription.textContent = '守備員正將球傳往一壘。';
         }
