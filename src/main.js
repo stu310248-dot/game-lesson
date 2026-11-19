@@ -20,7 +20,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.05;
 mount.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xd9efff, 0x42613d, 2.0));
@@ -72,6 +72,15 @@ outfield.lineTo(0, 22);
 const outMesh = new THREE.Mesh(new THREE.ShapeGeometry(outfield, 80), grassMat);
 outMesh.rotation.x = -Math.PI / 2; outMesh.receiveShadow = true; field.add(outMesh);
 
+const warningTrack = new THREE.Mesh(
+  new THREE.RingGeometry(79.2, 84.5, 96, 1, Math.PI, Math.PI),
+  mat(0x9a6846, 0.95)
+);
+warningTrack.rotation.x = -Math.PI / 2;
+warningTrack.position.set(0, 0.018, 22);
+warningTrack.receiveShadow = true;
+field.add(warningTrack);
+
 // Alternating mowing stripes.
 for (let i = 0; i < 8; i++) {
   const stripe = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 52), darkGrassMat);
@@ -118,6 +127,11 @@ line(wallCurve, mat(0x244a63), 0.48);
 for (let i = 0; i < 70; i += 2) {
   const a = Math.PI + (Math.PI * i / 70);
   box(field, 'wall-panel', [0.22, 2.1, 6.5], [Math.cos(a) * 80, 1.05, 22 + Math.sin(a) * 80], mat(i % 4 ? 0x164c70 : 0x1b5d80), false);
+}
+for (const x of [-80, 80]) {
+  const foulPole = cylinder(field, 0.14, 0.2, 12, [x, 6, 22], mat(0xf2d36b, 0.45), 12);
+  foulPole.castShadow = true;
+  box(field, 'foul-pole-cap', [1.4, 0.22, 0.22], [x, 11.6, 22], mat(0xf2d36b, 0.45), false);
 }
 
 // Stadium seating bowl.
@@ -1330,11 +1344,17 @@ function animate() {
           fieldingCatchStartedAt = now;
           fieldingCatchUntil = now + 0.9;
           catchAnimationUntil = now + 0.9;
-          match.batterNumber++;
-          match.addOut('飛球接殺！打者出局');
+          const catchState = match.snapshot();
+          if (catchState.bases[2] && catchState.outs < 2) {
+            match.sacrificeFly();
+          } else {
+            match.addOut('飛球接殺！打者出局');
+          }
           setHint(`${fieldingCatchPlayer.userData.positionLabel} 接殺成功！打者出局`);
-          actionTitle.textContent = '接殺出局！';
-          actionDescription.textContent = '守備員成功接住飛球，出局數已更新。';
+          actionTitle.textContent = catchState.bases[2] && catchState.outs < 2 ? '高飛犧牲打！' : '接殺出局！';
+          actionDescription.textContent = catchState.bases[2] && catchState.outs < 2
+            ? '三壘跑者在接殺後返本壘得分。'
+            : '守備員成功接住飛球，出局數已更新。';
           chasingFielder = null;
         }
       }

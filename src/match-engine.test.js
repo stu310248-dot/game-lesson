@@ -187,3 +187,13 @@ test('ground-ball double play requires a runner on first and fewer than two outs
   assert.equal(noRunner.groundBallOut({ target: 'second', doublePlay: true }), false);
   assert.equal(noRunner.outs, 0);
 });
+
+test('a caught fly ball can score a runner from third as a sacrifice fly', () => {
+  const game = createGame();
+  game.bases = [false, false, true];
+  game.sacrificeFly();
+  assert.equal(game.score[0], 1);
+  assert.deepEqual(game.bases, [false, false, false]);
+  assert.equal(game.outs, 1);
+  assert.equal(game.batterNumber, 2);
+});
