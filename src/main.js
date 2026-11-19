@@ -391,7 +391,9 @@ const ballTrail = Array.from({ length: 8 }, (_, index) => {
 
 const cameraViews = {
   broadcast: { position: [54, 48, 65], target: [0, 0, -5], label: '全場視角' },
-  batter: { position: [-3.65, 3.05, 29.2], target: [-0.15, 1.62, -0.2], label: '打者視角' },
+  // Low over-the-shoulder framing keeps the batter in the foreground while
+  // centering the pitcher, strike zone and incoming pitch like a mobile game.
+  batter: { position: [-4.8, 2.72, 27.8], target: [-0.05, 1.55, 6.2], label: '打者視角' },
   pitcher: { position: [0, 4.5, -12], target: [0, 1.5, 22], label: '投球視角' },
   field: { position: [34, 25, -35], target: [0, 0, 4], label: '守備視角' },
   runner: { position: [22, 12, 29], target: [0, 0, 7], label: '跑壘視角' }
