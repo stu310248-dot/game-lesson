@@ -204,6 +204,11 @@ let selectedThrowBase = 'first';
 let selectedRunnerBase = 0;
 let runnerAggressive = false;
 let throwWasForceOut = true;
+let selectedFielderIndex = 0;
+let manualFielderChase = false;
+let fieldingCatchRequested = false;
+let fieldingBallSecured = false;
+const fieldingMoveKeys = new Set();
 
 function animateRunnersToBases(baseState) {
   const active = runners.filter(r => r.visible);
@@ -497,8 +502,14 @@ function resolveSwingContact() {
   updateRunnerControls(match.snapshot());
   catchResolved = false;
   ballVelocity.set(direction, launch, -17 - quality * 19);
-  chasingFielder = fielders.reduce((best, player) =>
+  manualFielderChase = false;
+  fieldingCatchRequested = false;
+  fieldingBallSecured = false;
+  throwFielder = null;
+  chasingFielder = match.half === '下' ? null : fielders.reduce((best, player) =>
     !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
+  document.querySelector('#catchBtn').disabled = false;
+  document.querySelector('#fieldingStatus').textContent = match.half === '下' ? '選擇守備員，按指定追球；接近後按接球' : 'AI 守備中';
   ballAge = 0;
   setView('field');
   setHint(isGroundBall ? '擊球成功！滾地球！守備員正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！球飛向場內！');
@@ -575,6 +586,32 @@ document.querySelectorAll('.runner-select').forEach(btn => btn.addEventListener(
   updateRunnerControls(match.snapshot());
   setHint('已選擇' + ['一壘','二壘','三壘'][selectedRunnerBase] + '跑者。');
 }));
+document.querySelector('#fielderSelect')?.addEventListener('change', event => {
+  selectedFielderIndex = Number(event.target.value) || 0;
+  setHint('已選擇守備球員：' + ['投手','一壘手','二壘手','游擊手','三壘手','左外野','中外野','右外野'][selectedFielderIndex]);
+});
+document.querySelector('#chaseBtn')?.addEventListener('click', () => {
+  if (match.half !== '下' || ballMode !== 'hit' || !fielders[selectedFielderIndex]) return;
+  manualFielderChase = true;
+  chasingFielder = fielders[selectedFielderIndex];
+  setHint('指定球員追球中！');
+  document.querySelector('#fieldingStatus').textContent = '指定守備員正在追球；靠近球後按「接球」';
+});
+document.querySelector('#catchBtn')?.addEventListener('click', () => {
+  if (match.half !== '下' || ballMode !== 'hit' || !isGroundBall) return;
+  fieldingCatchRequested = true;
+  setHint('接球指令已送出，守備員靠近球時完成接球');
+});
+document.querySelector('#fieldThrowBtn')?.addEventListener('click', () => {
+  if (!fieldingBallSecured || !throwFielder || ballMode !== 'idle') return;
+  throwStartedAt = performance.now() / 1000;
+  ball.position.set(throwFielder.position.x, 1.65, throwFielder.position.z);
+  ball.visible = true;
+  ballMode = 'throw';
+  ballAge = 0;
+  document.querySelector('#fieldingStatus').textContent = '傳球中：' + ({first:'一壘',second:'二壘',third:'三壘',home:'本壘'}[selectedThrowBase]);
+  setHint('手動傳球！球正飛向指定壘包');
+});
 document.querySelector('#stealBtn')?.addEventListener('click', () => {
   if (ballMode !== 'idle' || match.half !== '上' || match.gameOver) return;
   const chanceByBase = [0.68, 0.62, 0.52];
@@ -645,6 +682,18 @@ window.addEventListener('keydown', event => {
   if (event.key.toLowerCase() === 'e') document.querySelector('.throw-target[data-base="third"]')?.click();
   if (event.key.toLowerCase() === 'r') document.querySelector('.throw-target[data-base="home"]')?.click();
   if (event.key.toLowerCase() === 's') document.querySelector('#stealBtn')?.click();
+  if (['KeyW','KeyA','KeyS','KeyD'].includes(event.code) && match.half === '下' && !['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName)) {
+    const fielder = fielders[selectedFielderIndex];
+    if (fielder) {
+      const step = event.shiftKey ? 1.25 : 0.65;
+      if (event.code === 'KeyW') fielder.position.z -= step;
+      if (event.code === 'KeyS') fielder.position.z += step;
+      if (event.code === 'KeyA') fielder.position.x -= step;
+      if (event.code === 'KeyD') fielder.position.x += step;
+      fielder.position.x = THREE.MathUtils.clamp(fielder.position.x, -58, 58);
+      fielder.position.z = THREE.MathUtils.clamp(fielder.position.z, -62, 20);
+    }
+  }
   const views = ['broadcast','batter','pitcher','field','runner'];
   if ('12345'.includes(event.key)) setView(views[Number(event.key)-1]);
 });
@@ -701,24 +750,40 @@ function animate() {
     ball.rotation.x += dt * 14;
     if (progress >= 1) {
       ball.visible = false; ballMode = 'idle';
-      throwFielder.userData.arms[0].rotation.z = -0.32;
-      throwFielder = null;
+      if (throwFielder) throwFielder.userData.arms[0].rotation.z = -0.32;
+      const wasManual = fieldingBallSecured && match.half === '下';
       const bases = match.snapshot().bases;
       const forceAvailable = selectedThrowBase === 'first' ||
         (selectedThrowBase === 'second' && bases[0]) ||
         (selectedThrowBase === 'third' && bases[1]) ||
         (selectedThrowBase === 'home' && bases[2]);
-      if (forceAvailable) {
-        match.batterNumber++;
-        match.addOut('守備傳向' + ({first:'一壘',second:'二壘',third:'三壘',home:'本壘'}[selectedThrowBase]) + '完成封殺！');
-        setHint('傳球封殺成功！');
-        actionTitle.textContent = '封殺成功！';
-        actionDescription.textContent = '你選擇的壘包有封殺機會，守備完成出局。';
+      if (wasManual) {
+        const doublePlay = selectedThrowBase === 'second' && bases[0] && match.outs < 2;
+        const completed = match.groundBallOut({ target: selectedThrowBase, doublePlay });
+        if (completed) {
+          setHint(match.lastCall);
+          actionTitle.textContent = doublePlay ? '雙殺成功！' : '封殺成功！';
+          actionDescription.textContent = doublePlay ? '二壘封殺後迅速傳向一壘，兩名跑者出局。' : '守備已將球傳到指定壘包並完成封殺。';
+        } else {
+          match.pitch({ contact: true, result: pendingHitKind, aggressive: false });
+          setHint('傳球目標沒有封殺機會，打者安全上壘！');
+        }
+        fieldingBallSecured = false;
+        fieldingCatchRequested = false;
+        document.querySelector('#fieldThrowBtn').disabled = true;
+        document.querySelector('#catchBtn').disabled = true;
+        document.querySelector('#fieldingStatus').textContent = '守備完成；下一球可重新指定球員';
       } else {
-        match.pitch({ contact: true, result: pendingHitKind, aggressive: false });
-        setHint('傳球目標沒有封殺機會，打者安全上壘！');
-        actionTitle.textContent = '安全上壘';
-        actionDescription.textContent = '傳球沒有形成封殺，打者與跑者推進。';
+        throwFielder = null;
+        if (forceAvailable) {
+          match.groundBallOut({ target: selectedThrowBase });
+          setHint('傳球封殺成功！');
+          actionTitle.textContent = '封殺成功！';
+          actionDescription.textContent = '守備完成封殺出局。';
+        } else {
+          match.pitch({ contact: true, result: pendingHitKind, aggressive: false });
+          setHint('傳球目標沒有封殺機會，打者安全上壘！');
+        }
       }
     }
   }
@@ -782,7 +847,22 @@ function animate() {
       }
       if (isGroundBall && !catchResolved && chasingFielder && ball.position.y <= 0.3 && ballAge > 0.45) {
         const distanceToBall = Math.hypot(ball.position.x - chasingFielder.position.x, ball.position.z - chasingFielder.position.z);
-        if (distanceToBall < 2.1) {
+        if (match.half === '下') {
+          if (fieldingCatchRequested && distanceToBall < 2.4) {
+            catchResolved = true;
+            fieldingBallSecured = true;
+            throwFielder = chasingFielder;
+            ball.visible = false;
+            ballMode = 'idle';
+            ballVelocity.set(0,0,0);
+            document.querySelector('#fieldThrowBtn').disabled = false;
+            document.querySelector('#catchBtn').disabled = true;
+            document.querySelector('#fieldingStatus').textContent = '接球成功！選擇傳球目標後按「傳球」';
+            setHint('接球成功！選擇壘包進行傳球');
+            actionTitle.textContent = '守備接球成功';
+            actionDescription.textContent = '現在可選擇一壘、二壘、三壘或本壘進行傳球。';
+          }
+        } else if (distanceToBall < 2.1) {
           catchResolved = true;
           throwFielder = chasingFielder;
           throwStartedAt = now;
@@ -824,7 +904,7 @@ function animate() {
           chasingFielder = null;
         }
         ball.visible = false; ballMode = 'idle';
-        if (!catchResolved) {
+        if (!catchResolved && !(match.half === '下' && isGroundBall)) {
           const aiAggressive = match.half === '下' ? Math.random() < (pendingHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
           match.pitch({ contact: true, result: pendingHitKind, aggressive: aiAggressive });
           setHint('球落地形成安打！');
@@ -836,6 +916,9 @@ function animate() {
         if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
       }
     } else if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
+  }
+  if (match.half === '下' && fieldingBallSecured && throwFielder) {
+    document.querySelector('#fieldThrowBtn').disabled = false;
   }
   if (catchAnimationUntil > 0 && now >= catchAnimationUntil) {
     fielders.forEach(player => {
