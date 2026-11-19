@@ -276,14 +276,23 @@ function chooseFielderForBall() {
   projected.x = THREE.MathUtils.clamp(projected.x, -58, 58);
   projected.z = THREE.MathUtils.clamp(projected.z, -58, 15);
   fieldingTarget.copy(projected);
-  return fielders.reduce((best, player) => {
+  const outfieldRoles = ['leftField', 'centerField', 'rightField'];
+  const projectedToOutfield = projected.z < -10 || Math.abs(projected.x) > 24;
+  const candidates = fielders.filter(player => {
+    const isOutfielder = outfieldRoles.includes(player.userData.positionRole);
+    if (!isGroundBall && projectedToOutfield) return isOutfielder;
+    if (isGroundBall && projected.z > -22) return !isOutfielder;
+    return true;
+  });
+  const availableFielders = candidates.length ? candidates : fielders;
+  return availableFielders.reduce((best, player) => {
     const home = player.userData.homePosition;
     const routeDistance = home.distanceTo(projected);
-    const isOutfielder = ['leftField', 'centerField', 'rightField'].includes(player.userData.positionRole);
+    const isOutfielder = outfieldRoles.includes(player.userData.positionRole);
     const rolePenalty = isGroundBall && isOutfielder ? 8 : !isGroundBall && !isOutfielder ? 6 : 0;
     const score = routeDistance + rolePenalty;
     return !best || score < best.score ? { player, score } : best;
-  }, null)?.player || fielders[0];
+  }, null)?.player || availableFielders[0];
 }
 
 function resetFieldersToHome() {
@@ -873,7 +882,11 @@ function resolveSwingContact() {
   chasingFielder.userData.fieldingState = 'reacting';
   ballAge = 0;
   setView('field');
-  setHint(isGroundBall ? '擊球成功！滾地球！守備員正追球。' : kind === 'homer' ? '全壘打！球飛越外野！' : '擊球成功！球飛向場內！');
+  setHint(isGroundBall
+    ? `${chasingFielder.userData.positionLabel} 正追處理滾地球！`
+    : kind === 'homer'
+      ? '全壘打！球飛越外野！'
+      : `${chasingFielder.userData.positionLabel} 正追球！`);
   actionTitle.textContent = kind === 'homer' ? 'HOME RUN！全壘打' : kind === 'double' ? '二壘安打！' : kind === 'triple' ? '三壘安打！' : isGroundBall ? '滾地球！' : '安打機會！';
   actionDescription.textContent = '擊球方向與高度依準星落點和揮棒時機計算。';
   hitMessageTimer = 2.8;
