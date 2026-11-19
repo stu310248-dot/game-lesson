@@ -391,6 +391,11 @@ function changePitcher() {
 }
 let activePitchCurve = 0;
 let ballSpinRate = 18;
+let homerResolved = false;
+const fireworkParticles = [];
+let fieldingCatchPlayer = null;
+let fieldingCatchStartedAt = 0;
+let fieldingCatchUntil = 0;
 let pitchInZone = true;
 let pitchResolved = false;
 let swingUntil = 0;
@@ -572,18 +577,35 @@ function resolveSwingContact() {
     return;
   }
 
-  // Contact quality shapes launch angle and spray direction.
+  // Contact physics: swing timing and bat sweet-spot alignment determine exit speed and launch angle.
   const verticalAim = aimPoint.y - ball.position.y;
-  const launch = THREE.MathUtils.clamp(7.2 + verticalAim * 7.0 + (quality - 0.5) * 2.2, 1.4, 16);
-  const direction = THREE.MathUtils.clamp((aimPoint.x - ball.position.x) * 6.0 + (Math.random() - 0.5) * (3.2 - quality * 1.8), -18, 18);
-  const roll = Math.random();
-  const kind = roll < 0.018 ? 'homer' : roll < 0.085 ? 'double' : roll < 0.10 ? 'triple' : 'single';
+  const launchAngle = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(
+    12 + verticalAim * 17 + (timingScore - 0.5) * 8, 4, 48
+  ));
+  const exitSpeed = 25 + quality * 17;
+  const sprayAngle = THREE.MathUtils.clamp(
+    (aimPoint.x - ball.position.x) * 0.13 + (Math.random() - 0.5) * (0.22 - quality * 0.12),
+    -0.62, 0.62
+  );
+  const horizontalSpeed = exitSpeed * Math.cos(launchAngle);
+  const verticalSpeed = exitSpeed * Math.sin(launchAngle);
+  const estimatedCarry = horizontalSpeed * (2 * verticalSpeed / 17);
+  const kind = estimatedCarry > 68 && launchAngle > THREE.MathUtils.degToRad(18) && launchAngle < THREE.MathUtils.degToRad(42) && quality > 0.62
+    ? 'homer'
+    : estimatedCarry > 46 ? 'triple'
+    : estimatedCarry > 31 ? 'double'
+    : 'single';
   pendingHitKind = kind;
-  isGroundBall = kind !== 'homer' && launch < 5.6;
+  isGroundBall = launchAngle < THREE.MathUtils.degToRad(12);
   ballMode = 'hit';
   updateRunnerControls(match.snapshot());
   catchResolved = false;
-  ballVelocity.set(direction, launch, -17 - quality * 19);
+  homerResolved = false;
+  ballVelocity.set(
+    Math.sin(sprayAngle) * horizontalSpeed,
+    verticalSpeed,
+    -Math.cos(sprayAngle) * horizontalSpeed
+  );
   ballSpinRate = 38 + quality * 18;
   chasingFielder = fielders.reduce((best, player) =>
     !best || player.position.distanceTo(ball.position) < best.position.distanceTo(ball.position) ? player : best, null);
@@ -819,9 +841,13 @@ function animate() {
     ball.rotation.x += dt * ballSpinRate * 0.72 * spinDirection;
     ball.rotation.y += dt * ballSpinRate * 0.38;
     ball.rotation.z += dt * ballSpinRate * 0.16;
-    if (ballMode === 'pitch' && activePitchCurve) {
-      ball.position.x += activePitchCurve * dt * dt * 0.42;
-      ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
+    if (ballMode === 'pitch') {
+      // Apply lateral break as acceleration rather than a frame-dependent position offset.
+      const breakAcceleration = activePitchCurve * 1.15;
+      ballVelocity.x += breakAcceleration * dt;
+      const dropAcceleration = activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : activePitchType === 'sinker' ? 2.2 : 0.8;
+      ballVelocity.y -= dropAcceleration * dt;
+      ballVelocity.multiplyScalar(Math.exp(-0.018 * dt));
     }
     // AI batter decision in the bottom half: swing at most pitches in-zone and sometimes chase.
     if (ballMode === 'pitch' && match.half === '下' && aiOpponentEnabled && !pendingSwing && !pitchResolved && ball.position.z >= 13.4 && aiDecisionPitchNumber !== pitchNumber) {
@@ -855,6 +881,32 @@ function animate() {
         controlsTarget.lerp(followTarget, Math.min(1, dt * 2.4));
         camera.lookAt(controlsTarget);
       }
+      if (pendingHitKind === 'homer' && !homerResolved && ball.position.z < -55 && ball.position.y > 1.5) {
+        homerResolved = true;
+        catchResolved = true;
+        const burstOrigin = ball.position.clone();
+        for (let n = 0; n < 42; n++) {
+          const material = new THREE.MeshBasicMaterial({
+            color: [0xffd166, 0xff6b6b, 0x75d5ff, 0xffffff][n % 4],
+            transparent: true,
+            opacity: 1
+          });
+          const spark = new THREE.Mesh(new THREE.SphereGeometry(0.12 + Math.random() * 0.09, 7, 6), material);
+          spark.position.copy(burstOrigin);
+          scene.add(spark);
+          const direction = new THREE.Vector3(Math.random() - 0.5, Math.random() * 1.1 + 0.25, Math.random() - 0.5).normalize();
+          fireworkParticles.push({ mesh: spark, velocity: direction.multiplyScalar(8 + Math.random() * 13), age: 0, life: 1.2 + Math.random() * 0.65 });
+        }
+        ball.visible = false;
+        ballMode = 'idle';
+        ballVelocity.set(0, 0, 0);
+        match.pitch({ contact: true, result: 'homer', aggressive: false });
+        setHint('全壘打！球飛越全壘打牆！');
+        actionTitle.textContent = 'HOME RUN！全壘打';
+        actionDescription.textContent = '球越過全壘打牆，煙火慶祝！';
+        hitMessageTimer = 3.2;
+        if (match.gameOver) document.querySelector('#pitchBtn').disabled = true;
+      }
       if (chasingFielder && ballAge < 2.8) {
         const target = new THREE.Vector3(
           THREE.MathUtils.clamp(ball.position.x, -55, 55), 0,
@@ -869,10 +921,10 @@ function animate() {
           catchResolved = true;
           ball.visible = false; ballMode = 'idle';
           ballVelocity.set(0, 0, 0);
-          chasingFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
-          chasingFielder.userData.arms[0].rotation.z = 1.15;
-          chasingFielder.userData.arms[1].rotation.z = -1.05;
-          catchAnimationUntil = now + 0.75;
+          fieldingCatchPlayer = chasingFielder;
+          fieldingCatchStartedAt = now;
+          fieldingCatchUntil = now + 0.9;
+          catchAnimationUntil = now + 0.9;
           match.batterNumber++;
           match.addOut('飛球接殺！打者出局');
           setHint('守備員接殺成功！打者出局');
@@ -910,15 +962,17 @@ function animate() {
           actionDescription.textContent = '守備員正將球傳往一壘。';
         }
       }
+      // Gravity, air resistance and ground friction keep the ball from travelling at a constant speed.
       ballVelocity.y -= 17 * dt;
+      ballVelocity.x *= Math.exp(-0.10 * dt);
+      ballVelocity.z *= Math.exp(-0.075 * dt);
       if (ball.position.y < 0.28) {
         ball.position.y = 0.28;
-        ballVelocity.y *= -0.38;
-        ballVelocity.x *= 0.72;
-        ballVelocity.z *= 0.72;
-        if (Math.abs(ballVelocity.y) < 1.2) ballVelocity.y = 0;
+        if (Math.abs(ballVelocity.y) > 1.8) ballVelocity.y *= -0.34;
+        else ballVelocity.y = 0;
+        ballVelocity.x *= Math.exp(-2.8 * dt);
+        ballVelocity.z *= Math.exp(-2.8 * dt);
       }
-      ball.rotation.x += dt * 8; ball.rotation.z += dt * 5;
       if (ballAge > 4.5 || Math.abs(ball.position.x) > 75 || ball.position.z < -90) {
         if (chasingFielder) {
           chasingFielder.userData.legs.forEach(leg => { leg.rotation.x = 0; });
@@ -947,6 +1001,36 @@ function animate() {
       if (ball.position.z > 23 || ballAge > 1.8) finishPitch();
     }
   }
+  if (fieldingCatchPlayer && now < fieldingCatchUntil) {
+    const progress = THREE.MathUtils.clamp((now - fieldingCatchStartedAt) / 0.9, 0, 1);
+    const gather = Math.sin(progress * Math.PI);
+    fieldingCatchPlayer.userData.torso.rotation.z = -0.08 - gather * 0.2;
+    fieldingCatchPlayer.userData.arms[0].rotation.z = 0.35 + gather * 0.9;
+    fieldingCatchPlayer.userData.arms[1].rotation.z = -0.35 - gather * 0.9;
+    fieldingCatchPlayer.userData.legs[0].rotation.x = -gather * 0.28;
+    fieldingCatchPlayer.userData.legs[1].rotation.x = -gather * 0.28;
+  } else if (fieldingCatchPlayer) {
+    fieldingCatchPlayer.userData.torso.rotation.z = 0;
+    fieldingCatchPlayer.userData.arms.forEach(arm => { arm.rotation.z = -0.32; });
+    fieldingCatchPlayer.userData.legs.forEach(leg => { leg.rotation.x = 0; });
+    fieldingCatchPlayer = null;
+  }
+
+  // Advance and fade the home-run fireworks independently of the baseball.
+  for (let index = fireworkParticles.length - 1; index >= 0; index--) {
+    const particle = fireworkParticles[index];
+    particle.age += dt;
+    particle.velocity.y -= 9.8 * dt;
+    particle.mesh.position.addScaledVector(particle.velocity, dt);
+    particle.mesh.material.opacity = Math.max(0, 1 - particle.age / particle.life);
+    if (particle.age >= particle.life) {
+      scene.remove(particle.mesh);
+      particle.mesh.geometry.dispose();
+      particle.mesh.material.dispose();
+      fireworkParticles.splice(index, 1);
+    }
+  }
+
   if (catchAnimationUntil > 0 && now >= catchAnimationUntil) {
     fielders.forEach(player => {
       if (player.userData.arms) {
