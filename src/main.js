@@ -395,7 +395,24 @@ function loadDevelopmentPlayers() {
   try {
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed) || parsed.length !== defaultDevelopmentPlayers.length) throw new Error('invalid player save');
-    return parsed.map((player, index) => ({ ...defaultDevelopmentPlayers[index], ...player }));
+    return parsed.map((player, index) => {
+      const savedPlayer = player && typeof player === 'object' ? player : {};
+      const defaults = { ...defaultDevelopmentPlayers[index], level: 12, xp: 0, trainingPoints: 3 };
+      return {
+        ...defaults,
+        level: Number.isFinite(savedPlayer.level) ? Math.max(1, Math.floor(savedPlayer.level)) : defaults.level,
+        xp: Number.isFinite(savedPlayer.xp) ? Math.max(0, Math.floor(savedPlayer.xp)) : defaults.xp,
+        trainingPoints: Number.isFinite(savedPlayer.trainingPoints)
+          ? Math.max(0, Math.floor(savedPlayer.trainingPoints))
+          : defaults.trainingPoints,
+        speed: Number.isFinite(savedPlayer.speed)
+          ? Math.min(170, Math.max(defaults.speed, savedPlayer.speed))
+          : defaults.speed,
+        control: Number.isFinite(savedPlayer.control)
+          ? Math.min(99, Math.max(1, savedPlayer.control))
+          : defaults.control
+      };
+    });
   } catch (error) {
     console.warn('球員培養資料無法讀取，已使用預設資料。', error);
     return defaultDevelopmentPlayers.map(player => ({ ...player, level: 12, xp: 0, trainingPoints: 3 }));
@@ -674,6 +691,7 @@ function resetCount() {
 }
 function nextPitch() {
   if (ballMode === 'pitch' || ballMode === 'hit' || ballMode === 'throw' || match.gameOver) return;
+  lastSoundCall = '';
   aiPitchCooldown = 3.2 + Math.random() * 1.2;
   if (aiOpponentEnabled) {
     const aiPitches = ['fastball', 'twoseam', 'slider', 'curve', 'changeup', 'splitter', 'sinker'];
@@ -764,10 +782,10 @@ function resolveSwingContact() {
   const horizontalSpeed = exitSpeed * Math.cos(launchAngle);
   const verticalSpeed = exitSpeed * Math.sin(launchAngle);
   const estimatedCarry = horizontalSpeed * (2 * verticalSpeed / 17);
-  const kind = estimatedCarry > 68 && launchAngle > THREE.MathUtils.degToRad(18) && launchAngle < THREE.MathUtils.degToRad(42) && quality > 0.62
+  const kind = estimatedCarry > 78 && launchAngle > THREE.MathUtils.degToRad(23) && launchAngle < THREE.MathUtils.degToRad(36) && quality > 0.78
     ? 'homer'
-    : estimatedCarry > 46 ? 'triple'
-    : estimatedCarry > 31 ? 'double'
+    : estimatedCarry > 58 && quality > 0.55 ? 'triple'
+    : estimatedCarry > 38 ? 'double'
     : 'single';
   pendingHitKind = kind;
   isGroundBall = launchAngle < THREE.MathUtils.degToRad(12);
@@ -1150,7 +1168,7 @@ function animate() {
         homerResolved = true;
         catchResolved = true;
         const burstOrigin = ball.position.clone();
-        for (let n = 0; n < 42; n++) {
+        for (let n = 0; n < 24; n++) {
           const material = new THREE.MeshBasicMaterial({
             color: [0xffd166, 0xff6b6b, 0x75d5ff, 0xffffff][n % 4],
             transparent: true,
