@@ -140,3 +140,30 @@ test('aggressive baserunning can score an extra runner on a single or double', (
   assert.equal(double.score[0], 2);
   assert.deepEqual(double.bases, [false, true, false]);
 });
+
+test('selected runner can steal one base, score from third, or be thrown out', () => {
+  const success = createGame();
+  success.bases = [true, false, false];
+  assert.equal(success.steal(0, true), true);
+  assert.deepEqual(success.bases, [false, true, false]);
+
+  const score = createGame();
+  score.bases = [false, false, true];
+  assert.equal(score.steal(2, true), true);
+  assert.deepEqual(score.bases, [false, false, false]);
+  assert.equal(score.score[0], 1);
+
+  const caught = createGame();
+  caught.bases = [true, false, false];
+  assert.equal(caught.steal(0, false), false);
+  assert.deepEqual(caught.bases, [false, false, false]);
+  assert.equal(caught.outs, 1);
+});
+
+test('steal is rejected when the selected base is empty or next base is occupied', () => {
+  const game = createGame();
+  assert.equal(game.steal(0, true), false);
+  game.bases = [true, true, false];
+  assert.equal(game.steal(0, true), false);
+  assert.deepEqual(game.bases, [true, true, false]);
+});
