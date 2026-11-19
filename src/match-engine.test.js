@@ -132,7 +132,7 @@ test('aggressive baserunning can score an extra runner on a single or double', (
   single.bases = [false, true, true];
   single.pitch({ contact: true, result: 'single', aggressive: true });
   assert.equal(single.score[0], 2);
-  assert.deepEqual(single.bases, [true, false, true]);
+  assert.deepEqual(single.bases, [true, false, false]);
 
   const double = createGame();
   double.bases = [true, false, true];
