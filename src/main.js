@@ -194,7 +194,7 @@ function makePlayer(teamMaterial, position, role = 'fielder') {
     box(legGroup, 'cleat-sole', [0.35, 0.045, 0.49], [0, -0.89, 0.11], trimMat, false);
     legs.push(legGroup);
     const armPivot = new THREE.Group();
-    armPivot.position.set(side * 0.43, 1.83, 0);
+    armPivot.position.set(side * 0.43, 0.28, 0);
     torso.add(armPivot);
     const sleeve = cylinder(armPivot, 0.17, 0.145, 0.38, [0, -0.12, 0], teamMaterial, 12);
     const forearm = cylinder(armPivot, 0.125, 0.105, 0.48, [0, -0.49, 0.035], skinMat, 12);
