@@ -889,7 +889,8 @@ function animate() {
       camera.position.lerp(followPosition, Math.min(1, dt * 1.8));
       controlsTarget.lerp(followTarget, Math.min(1, dt * 2.8));
       camera.lookAt(controlsTarget);
-      if (pendingHitKind === 'homer' && !homerResolved && Math.hypot(ball.position.x, ball.position.z - 22) >= 79.5 && ball.position.y > 2.2) {
+      const fairTerritory = Math.abs(ball.position.x) <= Math.max(2.5, (22 - ball.position.z) * 1.02);
+      if (pendingHitKind === 'homer' && !homerResolved && fairTerritory && Math.hypot(ball.position.x, ball.position.z - 22) >= 79.5 && ball.position.y > 2.2) {
         homerResolved = true;
         catchResolved = true;
         const burstOrigin = ball.position.clone();
@@ -991,10 +992,12 @@ function animate() {
         ball.visible = false; ballMode = 'idle';
         strikeZone.visible = currentView === 'batter';
         if (!catchResolved) {
-          const aiAggressive = match.half === '下' ? Math.random() < (pendingHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
-          match.pitch({ contact: true, result: pendingHitKind, aggressive: aiAggressive });
+          // A projected homer that never clears the fence is scored as an extra-base hit, not a homer.
+          const finalHitKind = pendingHitKind === 'homer' ? 'triple' : pendingHitKind;
+          const aiAggressive = match.half === '下' ? Math.random() < (finalHitKind === 'double' ? 0.42 : 0.18) : runnerAggressive;
+          match.pitch({ contact: true, result: finalHitKind, aggressive: aiAggressive });
           setHint('球落地形成安打！');
-          actionTitle.textContent = pendingHitKind === 'homer' ? 'HOME RUN！全壘打' : pendingHitKind === 'double' ? '二壘安打！' : pendingHitKind === 'triple' ? '三壘安打！' : '安打！';
+          actionTitle.textContent = finalHitKind === 'double' ? '二壘安打！' : finalHitKind === 'triple' ? '三壘安打！' : '安打！';
           actionDescription.textContent = '球已落地，打者與跑者完成推進。';
         }
         chasingFielder = null;
