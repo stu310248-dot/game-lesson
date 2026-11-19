@@ -450,6 +450,7 @@ function nextPitch() {
   ball.position.set(0, 2.4, -0.3);
   ball.visible = true;
   ballMode = 'pitch'; ballAge = 0;
+  updateRunnerControls(match.snapshot());
   activePitchCurve = profile.curve * (Math.random() < 0.5 ? -1 : 1);
   const destination = new THREE.Vector3(targetX, targetY, 19.7);
   const duration = 34 / effectiveSpeed;
@@ -493,6 +494,7 @@ function resolveSwingContact() {
   pendingHitKind = kind;
   isGroundBall = kind !== 'homer' && launch < 5.6;
   ballMode = 'hit';
+  updateRunnerControls(match.snapshot());
   catchResolved = false;
   ballVelocity.set(direction, launch, -17 - quality * 19);
   chasingFielder = fielders.reduce((best, player) =>
@@ -533,6 +535,7 @@ function finishPitch() {
     match.pitch({ inZone: pitchInZone, swung: false });
   }
   ball.visible = false; ballMode = 'idle'; activePitchCurve = 0;
+  updateRunnerControls(match.snapshot());
 }
 function resize() {
   const w = mount.clientWidth, h = mount.clientHeight;
