@@ -1,94 +1,177 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { MatchEngine } from './match-engine.js';
 
-:root{font-family:"Noto Sans TC",sans-serif;color:#eef5ff;background:#06101e;font-synthesis:none;text-rendering:optimizeLegibility}
-*{box-sizing:border-box}
-body{margin:0;min-width:320px;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#1c3653 0,#0a1a2c 42%,#050d18 100%)}
-button{font:inherit;cursor:pointer}
-.app-shell{width:min(1320px,100% - 40px);margin:0 auto;padding:22px 0 34px}
-.topbar{height:54px;display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
-.brand{display:flex;gap:11px;align-items:center;color:#fff;text-decoration:none}
-.brand-mark{width:38px;height:38px;border:1px solid #42617f;border-radius:12px;display:grid;place-items:center;color:#73d2ff;background:#112942;font-size:20px}
-.brand b,.brand small{display:block;line-height:1}
-.brand b{font:800 21px "Barlow Condensed",sans-serif;letter-spacing:2px}
-.brand small{font:600 9px "Barlow Condensed",sans-serif;letter-spacing:3px;color:#88a4c0;margin-top:5px}
-.build-tag{font:600 10px "Barlow Condensed",sans-serif;letter-spacing:1.7px;color:#8da7c1;display:flex;align-items:center;gap:8px}
-.build-tag i,.live-dot,.view-dot{width:7px;height:7px;border-radius:50%;background:#43df9a;box-shadow:0 0 12px #43df9a}
-.build-tag span{padding:5px 8px;border:1px solid #29445f;border-radius:5px;color:#a8c5df}
-.icon-button{width:38px;height:38px;border:1px solid #2b435d;background:#102238;color:#cde5ff;border-radius:10px;font-size:22px}
-.scoreboard{height:112px;background:linear-gradient(110deg,#10263d,#0b1c30 48%,#10263d);border:1px solid #28435f;border-radius:15px;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:12px 28px;margin-bottom:14px;box-shadow:0 12px 30px #0003}
-.team-block{display:flex;align-items:center;gap:12px}
-.team-block.away{justify-content:flex-end;text-align:right}
-.team-symbol{width:42px;height:42px;border-radius:12px;background:#23659c;display:grid;place-items:center;font:900 25px "Barlow Condensed",sans-serif;color:white}
-.team-symbol.red{background:#9d3b45}
-.team-block small,.team-block b{display:block}
-.team-block small{font-size:10px;letter-spacing:1px;color:#819ab4}
-.team-block b{font-size:15px;margin-top:4px}
-.score-center{text-align:center}
-.inning{display:flex;justify-content:center;align-items:center;gap:9px;font-size:11px;color:#a9c0d7}
-.live-dot{width:6px;height:6px}
-.score{display:flex;align-items:center;justify-content:center;gap:18px;font:800 38px "Barlow Condensed",sans-serif;line-height:1.1}
-.score span{font-size:25px;color:#617b96}
-.count{display:flex;justify-content:center;gap:13px;font:600 10px "Barlow Condensed",sans-serif;color:#829bb5}
-.count b{color:#fff;font-size:12px;margin-left:3px}
-.viewport-wrap{height:clamp(360px,53vw,590px);max-height:590px;position:relative;border:1px solid #2b4967;border-radius:16px;overflow:hidden;background:#10283b;box-shadow:0 18px 50px #0005}
-#gameViewport{position:absolute;inset:0}
-#gameViewport canvas{display:block;width:100%;height:100%}
-.view-chip{position:absolute;top:16px;left:16px;display:flex;gap:9px;align-items:center;padding:8px 12px;background:#071626c9;border:1px solid #45627b;border-radius:20px;font-size:11px;backdrop-filter:blur(8px);pointer-events:none}
-.view-dot{width:6px;height:6px;background:#69c8ff;box-shadow:0 0 10px #69c8ff}
-.field-hint{position:absolute;top:17px;right:18px;padding:8px 12px;background:#071626c9;border:1px solid #45627b;border-radius:8px;color:#c6d9e9;font-size:11px;pointer-events:none}
-.viewport-bottom{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;background:linear-gradient(transparent,#061321c9);font:600 9px "Barlow Condensed",sans-serif;letter-spacing:1.5px;color:#b0c6da;pointer-events:none}
-.viewport-bottom b{color:#67c7ff;margin:0 5px}
-.loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#0b1c2c;z-index:2;transition:opacity .4s}
-.loading.hidden{opacity:0;pointer-events:none}
-.loading b{font-size:14px}.loading span{font-size:11px;color:#8fa9c2}
-.loader{width:30px;height:30px;border:3px solid #31506d;border-top-color:#67c7ff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:7px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.control-deck{margin-top:14px;padding:20px 22px 13px;background:#0c1d30;border:1px solid #263f59;border-radius:15px;box-shadow:0 12px 30px #0003}
-.deck-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.deck-heading small,.action-copy small{display:block;font:600 9px "Barlow Condensed",sans-serif;letter-spacing:1.8px;color:#6f94b5}
-.deck-heading b{font-size:15px;display:block;margin-top:3px}
-.deck-heading>span{font-size:10px;color:#819bb5}
-.camera-buttons{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.camera-btn{height:43px;border:1px solid #2a4561;background:#10263d;border-radius:9px;color:#a8bfd4;font-size:12px;transition:.18s}
-.camera-btn span{font-size:16px;margin-right:6px}
-.camera-btn:hover,.camera-btn.active{background:#16436a;border-color:#398bc3;color:#fff;box-shadow:inset 0 0 0 1px #398bc344}
-.action-row{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:17px 0 14px;border-bottom:1px solid #21384f;margin-top:8px}
-.action-copy b,.action-copy span{display:block}
-.action-copy b{font-size:14px;margin:4px 0}
-.action-copy span{font-size:11px;color:#8ca5bd}
-.action-buttons{display:flex;gap:9px;flex-shrink:0}
-.secondary-btn,.primary-btn{height:43px;padding:0 19px;border-radius:9px;font-size:12px;font-weight:700}
-.secondary-btn{border:1px solid #3c6284;background:#142f49;color:#d9ecff}
-.primary-btn{border:1px solid #52b9f1;background:linear-gradient(135deg,#1884c6,#12609a);color:#fff;box-shadow:0 5px 18px #0878bd44}
-.secondary-btn span,.primary-btn span{font-size:16px;margin-right:5px}
-.bottom-note{display:flex;justify-content:space-between;gap:12px;padding-top:12px;color:#718ba5;font-size:10px}
-kbd{font:600 10px "Barlow Condensed",sans-serif;padding:2px 5px;border:1px solid #3a536b;border-radius:4px;background:#142a40;color:#d3e4f4}
-@media(max-width:650px){.app-shell{width:calc(100% - 20px);padding-top:10px}.build-tag{font-size:8px;letter-spacing:.8px}.build-tag span{display:none}.scoreboard{height:96px;padding:10px 12px}.team-symbol{width:32px;height:32px;border-radius:9px;font-size:20px}.team-block{gap:7px}.team-block small{font-size:8px}.team-block b{font-size:12px}.score{font-size:32px;gap:11px}.viewport-wrap{height:58vh;min-height:340px}.control-deck{padding:15px 12px 11px}.camera-buttons{gap:5px}.camera-btn{font-size:10px;height:40px}.camera-btn span{display:block;margin:0 0 1px;font-size:14px}.action-row{align-items:flex-end;gap:8px}.action-copy span{max-width:185px;line-height:1.5}.action-buttons{gap:5px}.secondary-btn,.primary-btn{padding:0 11px;height:40px;font-size:11px}.bottom-note{font-size:8px}.bottom-note span:last-child{display:none}.field-hint{font-size:9px;right:9px;top:57px}.view-chip{left:9px;top:9px}}
+function createGame() {
+  return new MatchEngine(() => {});
+}
 
-.advanced-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 2px;border-bottom:1px solid #21384f;color:#9eb6cc;font-size:11px}.advanced-controls label{display:flex;align-items:center;gap:9px}.advanced-controls select{background:#142f49;color:#e8f4ff;border:1px solid #3c6284;border-radius:8px;padding:8px 12px;font:inherit}.advanced-controls button{height:34px;padding:0 12px}.advanced-controls #baseStatus{font-weight:700;letter-spacing:1px;color:#f0d18a}@media(max-width:650px){.advanced-controls{flex-wrap:wrap;justify-content:space-between}.advanced-controls label{width:100%;justify-content:space-between}.advanced-controls select{flex:1;max-width:70%}}
+test('three strikes retire the batter and fourth ball awards a walk', () => {
+  const game = createGame();
+  game.pitch({ inZone: true });
+  game.pitch({ inZone: true });
+  game.pitch({ inZone: true });
+  assert.equal(game.outs, 1);
+  assert.equal(game.strikes, 0);
+  assert.equal(game.batterNumber, 2);
 
-.stamina-control{display:flex;align-items:center;gap:8px;min-width:150px;color:#9eb6cc;font-size:10px}.stamina-track{width:76px;height:7px;background:#263e54;border-radius:9px;overflow:hidden}.stamina-track i{display:block;width:100%;height:100%;background:#42d69a;border-radius:9px;transition:width .25s,background .25s}.stamina-track i.low{background:#ef9b54}.stamina-control b{color:#e8f4ff;font:700 11px 'Barlow Condensed',sans-serif}@media(max-width:650px){.stamina-control{min-width:135px;order:3}.stamina-track{flex:1}}
+  game.pitch({ inZone: false });
+  game.pitch({ inZone: false });
+  game.pitch({ inZone: false });
+  game.pitch({ inZone: false });
+  assert.deepEqual(game.bases, [true, false, false]);
+  assert.equal(game.balls, 0);
+});
 
-#pitcherName{font-weight:700;color:#cde5ff;white-space:nowrap}.advanced-controls label{white-space:nowrap}@media(max-width:650px){#pitcherName{order:4}}
+test('foul ball does not become strike three', () => {
+  const game = createGame();
+  game.pitch({ inZone: true });
+  game.pitch({ inZone: true });
+  game.foul();
+  assert.equal(game.strikes, 2);
+  assert.equal(game.outs, 0);
+});
+
+test('walk advances only forced runners and scores on bases-loaded walk', () => {
+  const game = createGame();
+  game.bases = [false, true, true];
+  game.walk();
+  assert.deepEqual(game.bases, [true, true, true]);
+  assert.equal(game.score[0], 0);
+
+  game.bases = [true, true, true];
+  game.walk();
+  assert.deepEqual(game.bases, [true, true, true]);
+  assert.equal(game.score[0], 1);
+});
+
+test('single, double, triple and home run advance runners and score correctly', () => {
+  const single = createGame();
+  single.bases = [true, true, true];
+  single.hit('single');
+  assert.deepEqual(single.bases, [true, true, true]);
+  assert.equal(single.score[0], 1);
+
+  const double = createGame();
+  double.bases = [true, true, true];
+  double.hit('double');
+  assert.deepEqual(double.bases, [false, true, true]);
+  assert.equal(double.score[0], 2);
+
+  const triple = createGame();
+  triple.bases = [true, true, true];
+  triple.hit('triple');
+  assert.deepEqual(triple.bases, [false, false, true]);
+  assert.equal(triple.score[0], 3);
+
+  const homer = createGame();
+  homer.bases = [true, true, true];
+  homer.hit('homer');
+  assert.deepEqual(homer.bases, [false, false, false]);
+  assert.equal(homer.score[0], 4);
+});
+
+test('three outs switch sides and clear the bases', () => {
+  const game = createGame();
+  game.bases = [true, true, true];
+  game.addOut('出局一');
+  game.addOut('出局二');
+  game.addOut('出局三');
+  assert.equal(game.inning, 1);
+  assert.equal(game.half, '下');
+  assert.equal(game.outs, 0);
+  assert.deepEqual(game.bases, [false, false, false]);
+});
+
+test('a tie after the bottom of the ninth enters extra innings', () => {
+  const game = createGame();
+  game.inning = 9;
+  game.half = '下';
+  game.addOut('出局一');
+  game.addOut('出局二');
+  game.addOut('出局三');
+  assert.equal(game.inning, 10);
+  assert.equal(game.half, '上');
+  assert.equal(game.gameOver, false);
+});
+
+test('home team can walk off with a hit or a bases-loaded walk', () => {
+  const hit = createGame();
+  hit.inning = 9;
+  hit.half = '下';
+  hit.score = [2, 2];
+  hit.hit('homer');
+  assert.equal(hit.gameOver, true);
+  assert.match(hit.lastCall, /再見全壘打/);
+
+  const walk = createGame();
+  walk.inning = 9;
+  walk.half = '下';
+  walk.score = [2, 2];
+  walk.bases = [true, true, true];
+  walk.walk();
+  assert.equal(walk.gameOver, true);
+  assert.match(walk.lastCall, /再見保送/);
+});
+
+test('home lead after the top of the ninth ends the game without the bottom half', () => {
+  const game = createGame();
+  game.inning = 9;
+  game.half = '上';
+  game.score = [2, 3];
+  game.addOut('出局一');
+  game.addOut('出局二');
+  game.addOut('出局三');
+  assert.equal(game.gameOver, true);
+  assert.equal(game.half, '下');
+});
 
 
-.aim-cursor{position:absolute;left:50%;top:50%;width:30px;height:30px;border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%);z-index:4;pointer-events:none;filter:drop-shadow(0 0 4px #071426)}
-.aim-cursor:before,.aim-cursor:after{content:"";position:absolute;background:#fff;left:50%;top:50%;transform:translate(-50%,-50%)}
-.aim-cursor:before{width:42px;height:2px}.aim-cursor:after{width:2px;height:42px}
-#aiToggle.active{border-color:#3baf83;background:#123d37;color:#b8ffe2}
-@media(max-width:650px){.aim-cursor{width:24px;height:24px}.aim-cursor:before{width:34px}.aim-cursor:after{height:34px}}
+test('aggressive baserunning can score an extra runner on a single or double', () => {
+  const single = createGame();
+  single.bases = [false, true, true];
+  single.pitch({ contact: true, result: 'single', aggressive: true });
+  assert.equal(single.score[0], 2);
+  assert.deepEqual(single.bases, [true, false, false]);
 
-.fielding-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#9eb6cc;font-size:10px}
-.fielding-tools>span{margin-left:5px;font-weight:700}
-.mini-control{height:29px;padding:0 9px;border:1px solid #34536f;border-radius:7px;background:#122a42;color:#c5d9ec;font-size:10px}
-.mini-control.active{background:#164b70;border-color:#55a9df;color:#fff}
-@media(max-width:650px){.fielding-tools{width:100%;order:6}.fielding-tools>span{margin-left:0}}
+  const double = createGame();
+  double.bases = [true, false, true];
+  double.pitch({ contact: true, result: 'double', aggressive: true });
+  assert.equal(double.score[0], 2);
+  assert.deepEqual(double.bases, [false, true, false]);
+});
 
+test('selected runner can steal one base, score from third, or be thrown out', () => {
+  const success = createGame();
+  success.bases = [true, false, false];
+  assert.equal(success.steal(0, true), true);
+  assert.deepEqual(success.bases, [false, true, false]);
 
-.runner-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#9eb6cc;font-size:10px}
-.runner-controls-title{font-weight:800;color:#f0d18a;margin-right:3px}
-.runner-select.active{background:#245b79;border-color:#7bc8ef;color:#fff}
-.steal-button{background:#174737;border-color:#328e69;color:#c6ffe3;font-weight:800}
-.steal-button:disabled{opacity:.4;cursor:not-allowed}
-.runner-status{color:#91a9c0;font-size:10px;margin-left:4px}
-@media(max-width:650px){.runner-controls{width:100%;order:7}.runner-status{width:100%;margin:0}}
+  const score = createGame();
+  score.bases = [false, false, true];
+  assert.equal(score.steal(2, true), true);
+  assert.deepEqual(score.bases, [false, false, false]);
+  assert.equal(score.score[0], 1);
+
+  const caught = createGame();
+  caught.bases = [true, false, false];
+  assert.equal(caught.steal(0, false), false);
+  assert.deepEqual(caught.bases, [false, false, false]);
+  assert.equal(caught.outs, 1);
+});
+
+test('steal is rejected when the selected base is empty or next base is occupied', () => {
+  const game = createGame();
+  assert.equal(game.steal(0, true), false);
+  game.bases = [true, true, false];
+  assert.equal(game.steal(0, true), false);
+  assert.deepEqual(game.bases, [true, true, false]);
+});
+
+.fielding-panel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;padding:10px 0;border-bottom:1px solid #21384f;color:#9eb6cc;font-size:10px}
+.fielding-panel>b{color:#f0d18a}
+.fielding-panel label{display:flex;align-items:center;gap:6px}
+.fielding-panel select{background:#142f49;color:#e8f4ff;border:1px solid #3c6284;border-radius:7px;padding:6px 8px;font:inherit}
+.fielding-panel button:disabled{opacity:.4;cursor:not-allowed}
+#fieldingStatus{color:#91a9c0}
+@media(max-width:650px){.fielding-panel{order:8}.fielding-panel label{width:100%;justify-content:space-between}.fielding-panel select{flex:1}}
