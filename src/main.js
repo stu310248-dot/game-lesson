@@ -1466,9 +1466,9 @@ function animate() {
       if (ball.position.z >= 22.65 && !catcherReceiving && !pendingSwing) {
         catcherReceiving = true;
         const gloveOffset = THREE.MathUtils.clamp(ball.position.x * 0.12, -0.28, 0.28);
-        catcher.userData.arms[0].rotation.z = 0.72 - gloveOffset;
-        catcher.userData.arms[1].rotation.z = -0.72 - gloveOffset;
-        catchAnimationUntil = now + 0.42;
+        catcher.userData.arms[0].rotation.z = 0.36 - gloveOffset;
+        catcher.userData.arms[1].rotation.z = -0.36 - gloveOffset;
+        catchAnimationUntil = now + 0.3;
         ball.position.set(
           THREE.MathUtils.clamp(ball.position.x, -0.75, 0.75),
           THREE.MathUtils.clamp(ball.position.y, 0.9, 2.25),
