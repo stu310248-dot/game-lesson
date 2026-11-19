@@ -322,11 +322,24 @@ let pendingSwing = false;
 let swingImpactAt = 0;
 let aiOpponentEnabled = true;
 let aiPitchCooldown = 1.4;
+let aiDecisionPitchNumber = -1;
 const aimCursor = document.querySelector('#aimCursor');
 const aiToggle = document.querySelector('#aiToggle');
 const clock = new THREE.Clock();
 const match = new MatchEngine(syncMatchUI);
 
+function updateControlRole(state) {
+  const userBatting = state.half === '上';
+  const roleNode = document.querySelector('#controlRole');
+  if (roleNode) roleNode.textContent = userBatting ? '玩家打擊 · AI 投球' : '玩家投球 · AI 打擊';
+  const pitchButton = document.querySelector('#pitchBtn');
+  if (pitchButton) {
+    pitchButton.textContent = userBatting && aiOpponentEnabled ? 'AI 投球中' : '↗ 投球';
+    pitchButton.disabled = !!state.gameOver || (userBatting && aiOpponentEnabled);
+  }
+  const swingButton = document.querySelector('#swingBtn');
+  if (swingButton) swingButton.disabled = !!state.gameOver || !userBatting;
+}
 function syncMatchUI(state) {
   balls = state.balls; strikes = state.strikes; outs = state.outs;
   document.querySelector('#balls').textContent = balls;
@@ -339,7 +352,14 @@ function syncMatchUI(state) {
   const baseNode = document.querySelector('#baseStatus');
   if (baseNode) baseNode.textContent = baseText;
   animateRunnersToBases(state.bases);
-  if (state.lastCall) setHint(state.lastCall);
+  updateControlRole(state);
+  if (!state.gameOver && state.half === '下') {
+    setView('pitcher');
+    if (state.lastCall) setHint(state.lastCall + '。現在由你投球，AI 負責打擊。');
+  } else if (!state.gameOver && state.half === '上') {
+    setView('batter');
+    if (state.lastCall) setHint(state.lastCall + '。現在由你打擊，AI 負責投球。');
+  } else if (state.lastCall) setHint(state.lastCall);
   if (state.gameOver) {
     actionTitle.textContent = '比賽結束';
     actionDescription.textContent = state.lastCall + '。可重新開始一場比賽。';
@@ -458,6 +478,7 @@ function resolveSwingContact() {
 
 function swing() {
   if (match.gameOver) return;
+  if (match.half !== '上') { setHint('現在是守備局，你是投手；按「投球」讓 AI 打擊。'); return; }
   const now = performance.now() / 1000;
   if (batterSwinging && now - swingStartedAt < 0.18) return;
   swingStartedAt = now;
@@ -496,7 +517,10 @@ resize();
 updateStaminaUI();
 
 document.querySelectorAll('.camera-btn').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
-document.querySelector('#pitchBtn').addEventListener('click', nextPitch);
+document.querySelector('#pitchBtn').addEventListener('click', () => {
+  if (match.half === '上' && aiOpponentEnabled) return;
+  nextPitch();
+});
 changePitcherBtn?.addEventListener('click', changePitcher);
 document.querySelector('#pitchType')?.addEventListener('change', e => { activePitchType = e.target.value; });
 document.querySelector('#restartBtn')?.addEventListener('click', () => { match.reset(); pitcherRoster.forEach(p => { p.stamina = 100; }); activePitcherIndex = 0; pitcherStamina = 100; if (pitcherSelect) pitcherSelect.value = '0'; updateStaminaUI(); document.querySelector('#pitchBtn').disabled = false; ball.visible = false; ballMode = 'idle'; aiPitchCooldown = aiOpponentEnabled ? 1.2 : 999; chasingFielder = null; throwFielder = null; catchResolved = false; pendingSwing = false; pendingHitKind = 'single'; actionTitle.textContent = '新比賽開始'; actionDescription.textContent = '選擇球種，按投球開始對決。'; });
@@ -549,8 +573,8 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.04);
   const now = performance.now() / 1000;
 
-  // The AI opponent automatically starts the next pitch after the previous play settles.
-  if (aiOpponentEnabled && ballMode === 'idle' && !match.gameOver) {
+  // AI automatically pitches in the top half; the player pitches in the bottom half.
+  if (aiOpponentEnabled && match.half === '上' && ballMode === 'idle' && !match.gameOver) {
     aiPitchCooldown -= dt;
     if (aiPitchCooldown <= 0) nextPitch();
   }
@@ -606,6 +630,25 @@ function animate() {
     if (ballMode === 'pitch' && activePitchCurve) {
       ball.position.x += activePitchCurve * dt * dt * 0.42;
       ball.position.y -= (activePitchType === 'curve' ? 5.5 : activePitchType === 'splitter' ? 3.8 : 0.8) * dt * dt;
+    }
+    // AI batter decision in the bottom half: swing at most pitches in-zone and sometimes chase.
+    if (ballMode === 'pitch' && match.half === '下' && aiOpponentEnabled && !pendingSwing && !pitchResolved && ball.position.z >= 13.4 && aiDecisionPitchNumber !== pitchNumber) {
+      aiDecisionPitchNumber = pitchNumber;
+      const shouldSwing = pitchInZone ? Math.random() < 0.82 : Math.random() < 0.28;
+      if (shouldSwing) {
+        const travel = THREE.MathUtils.clamp((AIM_CONTACT_Z - ball.position.z) / Math.max(1, ballVelocity.z), 0, 0.18);
+        aimPoint.set(
+          ball.position.x + ballVelocity.x * travel,
+          ball.position.y + ballVelocity.y * travel - 8.5 * travel * travel
+        );
+        pendingSwing = true;
+        swingImpactAt = now + travel;
+        swingStartedAt = now;
+        batterSwinging = true;
+        setHint('AI 打者準備揮棒！');
+        actionTitle.textContent = 'AI 打者揮棒判斷';
+        actionDescription.textContent = '你是投手，球種與控球將影響 AI 的擊球結果。';
+      }
     }
     if (ballMode === 'pitch' && pendingSwing && now >= swingImpactAt) {
       pendingSwing = false;
