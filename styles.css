@@ -77,3 +77,9 @@ kbd{font:600 10px "Barlow Condensed",sans-serif;padding:2px 5px;border:1px solid
 .aim-cursor:before{width:42px;height:2px}.aim-cursor:after{width:2px;height:42px}
 #aiToggle.active{border-color:#3baf83;background:#123d37;color:#b8ffe2}
 @media(max-width:650px){.aim-cursor{width:24px;height:24px}.aim-cursor:before{width:34px}.aim-cursor:after{height:34px}}
+
+.fielding-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#9eb6cc;font-size:10px}
+.fielding-tools>span{margin-left:5px;font-weight:700}
+.mini-control{height:29px;padding:0 9px;border:1px solid #34536f;border-radius:7px;background:#122a42;color:#c5d9ec;font-size:10px}
+.mini-control.active{background:#164b70;border-color:#55a9df;color:#fff}
+@media(max-width:650px){.fielding-tools{width:100%;order:6}.fielding-tools>span{margin-left:0}}
