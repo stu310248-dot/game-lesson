@@ -299,6 +299,21 @@ const seamMat = new THREE.MeshBasicMaterial({color:0xc84d4d});
 const seam = new THREE.Mesh(new THREE.TorusGeometry(0.19,0.012,5,32),seamMat);
 seam.rotation.set(0.6,0.4,0.2); ball.add(seam);
 
+// A short translucent motion trail makes pitch and hit direction easier to read.
+const ballTrailHistory = [];
+const ballTrail = Array.from({ length: 8 }, (_, index) => {
+  const material = new THREE.MeshBasicMaterial({
+    color: index < 3 ? 0xd9f4ff : 0x8fc9e8,
+    transparent: true,
+    opacity: 0.34 * (1 - index / 8),
+    depthWrite: false
+  });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16 - index * 0.012, 10, 8), material);
+  mesh.visible = false;
+  scene.add(mesh);
+  return mesh;
+});
+
 const cameraViews = {
   broadcast: { position: [54, 48, 65], target: [0, 0, -5], label: '全場視角' },
   batter: { position: [-3.65, 3.05, 29.2], target: [-0.15, 1.62, -0.2], label: '打者視角' },
@@ -980,6 +995,19 @@ function animate() {
     }
   }
   if (hitMessageTimer > 0) hitMessageTimer -= dt;
+  if (ball.visible && ballMode !== 'idle') {
+    ballTrailHistory.unshift(ball.position.clone());
+    if (ballTrailHistory.length > 18) ballTrailHistory.length = 18;
+    ballTrail.forEach((mesh, index) => {
+      const point = ballTrailHistory[Math.min(ballTrailHistory.length - 1, (index + 1) * 2)];
+      mesh.visible = Boolean(point);
+      if (point) mesh.position.copy(point);
+    });
+  } else {
+    ballTrailHistory.length = 0;
+    ballTrail.forEach(mesh => { mesh.visible = false; });
+  }
+
   renderer.render(scene, camera);
 }
 animate();
