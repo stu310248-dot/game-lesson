@@ -143,6 +143,37 @@ export class MatchEngine {
     }
   }
 
+  groundBallOut({ target = 'first', doublePlay = false } = {}) {
+    if (this.gameOver) return false;
+    const forceAvailable = target === 'first' ||
+      (target === 'second' && this.bases[0]) ||
+      (target === 'third' && this.bases[1]) ||
+      (target === 'home' && this.bases[2]);
+    if (!forceAvailable) {
+      this.lastCall = '該壘沒有封殺跑者，無法完成封殺';
+      this.emit();
+      return false;
+    }
+
+    if (doublePlay && target === 'second' && this.bases[0] && this.outs < 2) {
+      const runnerOnSecond = this.bases[1];
+      const runnerOnThird = this.bases[2];
+      this.outs += 2;
+      this.bases = [false, false, runnerOnThird || runnerOnSecond];
+      this.balls = 0;
+      this.strikes = 0;
+      this.batterNumber += 1;
+      this.lastCall = '雙殺守備！二壘封殺後傳一壘，完成雙殺';
+      if (this.outs >= 3) this.endHalf();
+      else this.emit();
+      return true;
+    }
+
+    this.batterNumber += 1;
+    this.addOut('守備傳向' + ({ first: '一壘', second: '二壘', third: '三壘', home: '本壘' }[target]) + '完成封殺！');
+    return true;
+  }
+
   steal(baseIndex, success) {
     if (this.gameOver) return false;
     if (!Number.isInteger(baseIndex) || baseIndex < 0 || baseIndex > 2) return false;
