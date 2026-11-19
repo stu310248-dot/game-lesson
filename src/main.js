@@ -889,7 +889,7 @@ function animate() {
       camera.position.lerp(followPosition, Math.min(1, dt * 1.8));
       controlsTarget.lerp(followTarget, Math.min(1, dt * 2.8));
       camera.lookAt(controlsTarget);
-      if (pendingHitKind === 'homer' && !homerResolved && ball.position.z < -55 && ball.position.y > 1.5) {
+      if (pendingHitKind === 'homer' && !homerResolved && Math.hypot(ball.position.x, ball.position.z - 22) >= 79.5 && ball.position.y > 2.2) {
         homerResolved = true;
         catchResolved = true;
         const burstOrigin = ball.position.clone();
